@@ -1,0 +1,37 @@
+# DeepDriveMD Parameters
+
+num_md_jobs: 192
+num_outlier_detection_jobs: 1
+
+
+# MD Simulation Parameters
+
+md_config:
+    # Absolute path to initial PDB file
+    pdb_file:
+
+    # Absolute path to reference structure PDB file
+    reference_pdb_file:
+
+    # Absolute path to topology file (optional)
+    top_file: ''
+
+    # Absolute path to simulation checkpoint file (optional)
+    checkpoint_file: ''
+
+    # Length of simulation in nanoseconds
+    simulation_length: 10
+
+    # Report interval in picoseconds
+    report_interval: 50
+
+    # Number of simulation steps 
+
+    # Path to scp data files to (optional)
+    scp_path: ''
+
+    # Absolute path to cp data files to (optional)
+    cp_path: ''
+
+
+
