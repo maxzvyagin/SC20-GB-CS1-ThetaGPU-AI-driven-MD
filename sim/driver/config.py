@@ -42,6 +42,8 @@ class GPUTrainingConfig(BaseSettings):
 
 
 class CS1TrainingConfig(BaseSettings):
+    medulla_experiment_path: Path
+    run_script: Path = "/data/shared/vishal/ANL-shared/cvae_gb/run_mixed.sh"
     sim_data_dir: Optional[Path]
     data_dir: Optional[Path]
     eval_data_dir: Optional[Path]
