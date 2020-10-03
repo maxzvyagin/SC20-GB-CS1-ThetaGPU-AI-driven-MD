@@ -1,13 +1,10 @@
-import sys, os 
+import os 
 import argparse 
 import simtk.unit as u
 from MD_utils.openmm_reporter import CopySender 
 from MD_utils.openmm_simulation import openmm_simulate_amber_implicit
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-cm", "--output_cm", default="output_cm.h5",
-                    help="If name ends with .h5 will write a single HDF5 file." \
-                         "Otherwise will write many with this name prefix")
 parser.add_argument('-c', '--config', help='YAML config file')
 args = parser.parse_args()
 
@@ -44,8 +41,8 @@ openmm_simulate_amber_implicit(
         GPU_index=0,
         output_traj="output.dcd",
         output_log="output.log",
-        output_cm=args.output_cm,
+        output_cm="output_cm",
         report_time=float(cfg['report_interval']) * u.picoseconds,
         sim_time=float(cfg['simulation_length']) * u.nanoseconds, 
-        reeval_time=10*u.nanoseconds,
+        reeval_time=float(cfg['reeval_time']) * u.nanoseconds,
         senders=senders)

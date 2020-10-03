@@ -1,6 +1,6 @@
 import os 
 
-def create_md_path(label, h5_dir=None): 
+def create_md_path(label, h5_dir='h5_dir'): 
     """
     create MD simulation path based on its label (int), 
     and automatically update label if path exists. 
@@ -9,10 +9,7 @@ def create_md_path(label, h5_dir=None):
 
     try:
         os.mkdir(md_path)
-
-        if isinstance(h5_dir, str) and not h5_dir.endswith('.h5'):
-            os.mkdir(os.path.join(md_path, h5_dir))
-
+        os.mkdir(os.path.join(md_path, h5_dir))
         return md_path
     except: 
         return create_md_path(label + 1, h5_dir)

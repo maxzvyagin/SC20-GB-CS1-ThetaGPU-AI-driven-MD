@@ -22,6 +22,9 @@ md_config:
     # Length of simulation in nanoseconds
     simulation_length: 10
 
+    # Length of each simulation in nanoseconds if recursive mode is active
+    reeval_time: 10
+
     # Report interval in picoseconds
     report_interval: 50
 
