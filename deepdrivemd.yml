@@ -3,25 +3,31 @@ experiment_directory: "/lus/theta-fs0/projects/RL_fold/path/to/run1"
 
 # MD Simulation Parameters
 md_runner:
-  num_jobs: 32
-  # Absolute path to initial PDB file
-  pdb_file:
+    num_jobs: 32
+    # Absolute path to initial PDB file
+    pdb_file:
 
-  # Absolute path to reference structure PDB file
-  reference_pdb_file:
+    # Absolute path to reference structure PDB file
+    reference_pdb_file:
 
-  # Absolute path to topology file (optional)
-  top_file: ""
+    # Absolute path to topology file (optional)
+    top_file: ""
 
-  # Length of simulation in nanoseconds
-  simulation_length_ns: 10
+    # Length of simulation in nanoseconds
+    simulation_length_ns: 10
 
-  # Report interval in picoseconds
-  report_interval_ps: 50
+    # Report interval in picoseconds
+    report_interval_ps: 50
+
+    # Length of each simulation in nanoseconds if recursive mode is active
+    reeval_time: 10
+
+    # Report interval in picoseconds
+    report_interval: 50
 
 # Outlier detection parameters
 outlier_detection:
-  num_jobs: 1
+    num_jobs: 1
 
 # ThetaGPU Horovod Training Parameters (Optional)
 gpu_training: 
