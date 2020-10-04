@@ -1,6 +1,7 @@
 from fabric import Connection
 from tempfile import NamedTemporaryFile
 import yaml
+import json
 
 
 def get_connection(host):
@@ -37,7 +38,7 @@ def write_configuration(conn, training_config, theta_experiment_dir):
     training_config.theta_gpu_path.mkdir(exist_ok=True)
 
     with NamedTemporaryFile(mode="w", delete=False) as fp:
-        yaml.dump(training_config.dict(), fp)
+        yaml.dump(json.loads(training_config.json()), fp)
         fp.flush()
         conn.put(fp.name, top_dir.joinpath("params.yaml").as_posix())
 

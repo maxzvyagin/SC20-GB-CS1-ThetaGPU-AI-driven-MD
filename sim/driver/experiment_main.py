@@ -54,7 +54,7 @@ def main(config_filename):
         exist_ok=False  # No duplicate experiment directories!
     )
 
-    conn = get_connection()
+    conn = get_connection("medulla1")
     write_configuration(conn, config.cs1_training, config.experiment_directory)
     launch_cs1_trainer(conn, config.cs1_training)
     sys.exit(0)

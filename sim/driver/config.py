@@ -1,7 +1,10 @@
 # Schema of the YAML experiment file
 
+import json
 import yaml
 from pydantic import BaseSettings
+from pathlib import Path
+from typing import Optional, List, Dict
 
 
 class MDConfig(BaseSettings):
@@ -18,7 +21,7 @@ class MDConfig(BaseSettings):
     h5_cp_path: Optional[str]
 
     def dump_yaml(self, file):
-        yaml.dump(self.dict(), file)
+        yaml.dump(json.loads(self.json()), file)
 
 
 class MDRunnerConfig(BaseSettings):
@@ -100,11 +103,12 @@ class CS1TrainingConfig(BaseSettings):
     mode: str = "train"
     train_steps: int = 10
     eval_steps: int = 2
-    runconfig_params: Optional[str] = None
-    save_checkpoints_steps: int = 10
-    keep_checkpoint_max: int = 3
-    save_summary_steps: int = 10
-    log_step_count_steps: int = 10
+    runconfig_params: Dict[str, int] = {
+          "save_checkpoints_steps": 10,
+          "keep_checkpoint_max": 3,
+          "save_summary_steps": 10,
+          "log_step_count_steps": 10,
+    }
 
 
 class ExperimentConfig(BaseSettings):

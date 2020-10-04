@@ -1,0 +1,97 @@
+# DeepDriveMD Parameters
+experiment_directory: "/lus/theta-fs0/projects/RL-fold/msalim/experiment-test2"
+
+# MD Simulation Parameters
+md_runner:
+    num_jobs: 32
+    # Absolute path to initial PDB file
+    pdb_file: "d"
+
+    # Absolute path to reference structure PDB file
+    reference_pdb_file: "d"
+
+    # Absolute path to topology file (optional)
+    top_file: ""
+
+    # Length of simulation in nanoseconds
+    simulation_length_ns: 10
+
+    # Report interval in picoseconds
+    report_interval_ps: 50
+
+    # Length of each simulation in nanoseconds if recursive mode is active
+    #reeval_time: 10
+
+    # Report interval in picoseconds
+    # report_interval: 50
+
+# Outlier detection parameters
+outlier_detection:
+    num_jobs: 1
+
+# ThetaGPU Horovod Training Parameters (Optional)
+gpu_training: 
+
+# CS1 CVAE Training Parameters (Optional)
+cs1_training:
+    # Data params
+    medulla_experiment_path: "/data/shared/msalim/experiment-test2/"
+    sim_data_dir: "/data/shared/vishal/new_dataV2"# "/data/shared/vishal/toy_data/"
+    data_dir: "/data/shared/vishal/ANL-shared/cvae_gb/records_loop36" # "/data/shared/vishal/toy_data" # "/data/training_data/cvae"
+    eval_data_dir: "/data/shared/vishal/ANL-shared/cvae_gb/eval_records_loop36"
+    fraction: 0.2 # eval fraction
+    last_n_files: 1
+    last_n_files_eval: 1
+    batch_size: 1
+    input_shape: [1, 32, 32] # used by model, final shape in input_fn
+    itemsize: 1
+    mixed_precision: True
+    h5_shape: [1, 36, 36] # h5 padded to, must be larger than or equal to tfrecord_shape
+    tfrecord_shape: [1, 36, 36] # shape tfrecords should come in as
+    global_path: "/data/shared/vishal/ANL-shared/cvae_gb/files_seen37.txt"
+    samples_per_file: 1
+    theta_gpu_path: "/projects/RL-fold/msalim/experiment-test"
+
+    # Model params
+    enc_conv_kernels: [5, 5, 5, 5] # 3
+    # Encoder filters define OUTPUT filters per layer
+    enc_conv_filters: [100, 100, 100, 100] # 64, 64, 64, 32
+    enc_conv_strides: [1, 1, 2, 1]
+    dec_conv_kernels: [5, 5, 5, 5]
+    # Decoder filters define INPUT filters per layer
+    dec_conv_filters: [100, 100, 100, 100]
+    dec_conv_strides: [1, 2, 1, 1]
+    dense_units: 64 # 128
+    latent_ndim: 10 # 3
+    activation: "relu"
+    # Setting full_precision_loss to False as we do not support it yet.
+    full_precision_loss: False
+    reconstruction_loss_reduction_type: "sum"
+    kl_loss_reduction_type: "sum"
+    model_random_seed:
+    data_random_seed:
+
+    # Optimizer params
+    epsilon: 1.0e-8
+    beta1: 0.2
+    beta2: 0.9
+    decay: 0.9
+    momentum: 0.9
+    optimizer_name: "rmsprop"
+    allowed_optimizers: ["sgd", "sgdm", "adam", "rmsprop"]
+    learning_rate: 2.0e-5
+    loss_scale: 1
+
+    # Logging params are not supported on CS-1 and are disabled in run.py.
+    metrics: True
+
+    # Run params
+    mode: "train"
+    model_dir: "./model_dir37"
+    train_steps: 10
+    eval_steps: 2
+    runconfig_params:
+        save_checkpoints_steps: 10
+        keep_checkpoint_max: 3
+        save_summary_steps: 10
+        log_step_count_steps: 10
