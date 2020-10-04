@@ -1,3 +1,4 @@
+from fabric import Connection
 import sys
 from typing import Optional
 from pathlib import Path
@@ -24,18 +25,22 @@ def start_md_run(workdir, md_config):
 
 def dispatch_md_runs(manager, config):
     md_runs = []
-
     md_dir = config.experiment_directory.joinpath("md_runs")
-    local_h5_dir = md_dir.joinpath("h5_contact_maps")
     md_dir.mkdir()
-    local_h5_dir.mkdir()
+    MPIRun.set_preamble_commands(*config.md_environ_setup)
 
     if config.cs1_training is not None:
-        scp_dir
+        remote_experiment_path = config.cs1_training.medulla_experiment_path
+        h5_dest = remote_experiment_path.joinpath("h5_data")
+        h5_scp_path = f"{config.medulla_ssh_hostname}:{h5_dest}"
+    else:
+        h5_scp_path = None
 
     for i in range(config.num_jobs):
-        workdir = md_dir.joinpath(f"{i:03d}")
-        checkpoint_fname = f"{config.experiment_directory.name}_{i:03d}.chk"
+        nodes, gpu_ids = manager.request(num_nodes=1, gpus_per_node=1)
+        node_hostname = nodes[0].id
+        run_base_id = (f"run{i:04d}")
+        checkpoint_fname = f"{config.experiment_directory.name}_{i:05d}.chk"
         md_config = MDConfig(
             pdb_file=config.md_runner.pdb_file,
             reference_pdb_file=config.md_runner.reference_pdb_file,
@@ -43,8 +48,25 @@ def dispatch_md_runs(manager, config):
             checkpoint_file=checkpoint_fname,
             simulation_length_ns=config.md_runner.simulation_length_ns,
             report_interval_ps=config.md_runner.report_interval_ps,
-            h5_cp_path=local_h5_dir,
+            reeval_time_ns=config.md_runner.reeval_time_ns,
+            run_base_id=run_base_id,  # like "run058",
+            local_run_dir=config.md_runner.local_run_dir,
+            h5_scp_path=h5_scp_path,
+            result_dir=md_dir,
         )
+        with NamedTemporaryFile(prefix=run_base_id) as fp:
+            md_config.dump_yaml(fp)
+            fp.flush()
+            Connection(node_hostname).put(fp.name, md_config.local_run_dir)
+            cfg_path = md_config.local_run_dir.joinpath(fp.name)
+            MPIRun(
+                config.md_run_command + f" -c {cfg_path}",
+                node_list=nodes,
+                ranks_per_node=1,
+                gpu_ids=gpus,
+                output_file=md_dir.joinpath(run_base_id + ".out"),
+            )
+
     return md_runs
 
 
@@ -55,7 +77,7 @@ def main(config_filename):
         exist_ok=False  # No duplicate experiment directories!
     )
 
-    conn = get_connection("medulla1")
+    conn = get_connection(config.cs1_training.medulla_ssh_hostname)
     write_configuration(conn, config.cs1_training, config.experiment_directory)
     train_thread = launch_cs1_trainer(conn, config.cs1_training)
     print("sleeping for a while")
