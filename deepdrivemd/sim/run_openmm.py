@@ -2,8 +2,8 @@ import argparse
 import os
 import yaml
 import simtk.unit as u
-from .MD_utils.openmm_reporter import CopySender
-from .MD_utils.openmm_simulation import (
+from deepdrivemd.sim.openmm_reporter import CopySender
+from deepdrivemd.sim.utils.openmm_simulation import (
     openmm_simulate_amber_implicit,
     openmm_simulate_amber_explicit,
 )
