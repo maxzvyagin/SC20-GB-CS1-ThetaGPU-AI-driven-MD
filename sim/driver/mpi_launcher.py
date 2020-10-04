@@ -7,13 +7,13 @@ import subprocess
 import tempfile
 import logging
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(message)s')
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(message)s")
 logger = logging.getLogger(__name__)
 
 
 IDENTITY_FILE = os.environ.setdefault(
     "MEDULLA_IDENTITY_FILE",
-    os.path.expanduser('~/.ssh/id_rsa_medulla'),
+    os.path.expanduser("~/.ssh/id_rsa_medulla"),
 )
 
 
@@ -48,10 +48,10 @@ class ComputeNode:
             hostfile = os.environ["COBALT_NODEFILE"]
         with open(hostfile) as fp:
             data = fp.read()
-        splitter = ',' if ',' in data else None
+        splitter = "," if "," in data else None
         return [cls(node_id) for node_id in data.split(splitter)]
 
-    def free_gpus(self, gpu_list: List[int]):
+    def free_gpus(self, gpu_list: Set[int]):
         for id in gpu_list:
             self.busy_gpus.remove(id)
             self.idle_gpus.add(id)
@@ -66,21 +66,19 @@ class ComputeNodeManager:
     def num_nodes(self):
         return len(self.nodes)
 
-    def request(self, num_nodes: int,
-                gpus_per_node: int) -> Tuple[List[ComputeNode], Set[int]]:
+    def request(
+        self, num_nodes: int, gpus_per_node: int
+    ) -> Tuple[List[ComputeNode], Set[int]]:
         available_nodes = [
-            node for node in self.nodes
-            if len(node.idle_gpus) >= gpus_per_node
+            node for node in self.nodes if len(node.idle_gpus) >= gpus_per_node
         ]
-        idle_gpu_map = {
-            node: node.idle_gpus
-            for node in available_nodes
-        }
+        idle_gpu_map = {node: node.idle_gpus for node in available_nodes}
         idle_gpu_sets = list(idle_gpu_map.values())
 
         if len(idle_gpu_map) < num_nodes:
             raise InsufficientResources(
-                "Not enough nodes have `gpus_per_node` free GPUs")
+                "Not enough nodes have `gpus_per_node` free GPUs"
+            )
 
         # Select a common tuple of GPU IDs that is available on all num_nodes
         common_gpu_ids = (
@@ -93,12 +91,11 @@ class ComputeNodeManager:
 
         if gpu_ids is None:
             raise InsufficientResources(
-                "Not enough nodes have a matching set of idle GPU IDs")
+                "Not enough nodes have a matching set of idle GPU IDs"
+            )
 
         nodes = [
-            node
-            for node, gpu_set in idle_gpu_map.items()
-            if gpu_ids.issubset(gpu_set)
+            node for node, gpu_set in idle_gpu_map.items() if gpu_ids.issubset(gpu_set)
         ][:num_nodes]
 
         for node in nodes:
@@ -130,7 +127,6 @@ class MPIRunTemplate:
         gpu_ids=None,
         envs_dict=None,
         hostfile=None,
-
     ):
         if hostfile is None:
             hostfile = os.environ["COBALT_NODEFILE"]
@@ -141,8 +137,7 @@ class MPIRunTemplate:
             envs_dict = {}
         envs_dict["MEDULLA_IDENTITY_FILE"] = IDENTITY_FILE
         if gpu_ids:
-            envs_dict["CUDA_VISIBLE_DEVICES"] = ",".join(
-                str(id) for id in gpu_ids)
+            envs_dict["CUDA_VISIBLE_DEVICES"] = ",".join(str(id) for id in gpu_ids)
         envs = MPIRunTemplate._env_str(envs_dict)
 
         return (
@@ -153,7 +148,6 @@ class MPIRunTemplate:
 
 
 class MPIRun:
-
     @staticmethod
     def set_preamble_commands(*cmds):
         MPIRun.ENVIRON_SETUP = list(cmds)
@@ -171,7 +165,7 @@ class MPIRun:
         self.nodes = node_list
         self.gpu_ids = gpu_ids
         if isinstance(output_file, (str, Path)):
-            self.outfile = open(output_file, 'wb')
+            self.outfile = open(output_file, "wb")
         else:
             self.outfile = output_file
 
@@ -184,7 +178,7 @@ class MPIRun:
             envs_dict=envs_dict,
         )
 
-        args = ' && '.join(MPIRun.ENVIRON_SETUP + [mpi_command])
+        args = " && ".join(MPIRun.ENVIRON_SETUP + [mpi_command])
         logger.info(f"Popen: {args}")
         self.process = subprocess.Popen(
             args=args,
@@ -192,7 +186,7 @@ class MPIRun:
             executable="/bin/bash",
             cwd=cwd,
             stdout=self.outfile,
-            stderr=subprocess.STDOUT
+            stderr=subprocess.STDOUT,
         )
 
     def free_nodes(self):
@@ -205,29 +199,3 @@ class MPIRun:
             self.outfile.close()
             self.free_nodes()
         return retcode
-
-
-if __name__ == "__main__":
-    with tempfile.NamedTemporaryFile(mode="w") as fp:
-        fp.write(",".join(str(i) for i in range(128)))
-        fp.flush()
-        node_manager = ComputeNodeManager(hostfile=fp.name)
-
-    nodes, gpus = node_manager.request(num_nodes=128, gpus_per_node=1)
-    print(nodes, gpus)
-    nodes, gpus = node_manager.request(num_nodes=1, gpus_per_node=1)
-    print(nodes, gpus)
-    nodes, gpus = node_manager.request(num_nodes=1, gpus_per_node=6)
-    print(nodes, gpus)
-    nodes, gpus = node_manager.request(num_nodes=1, gpus_per_node=7)
-    print(nodes, gpus)
-    nodes, gpus = node_manager.request(num_nodes=1, gpus_per_node=1)
-    print(nodes, gpus)
-    nodes, gpus = node_manager.request(num_nodes=1, gpus_per_node=1)
-    print(nodes, gpus)
-    nodes, gpus = node_manager.request(num_nodes=4, gpus_per_node=1)
-    print(nodes, gpus)
-    try:
-        nodes, gpus = node_manager.request(num_nodes=1, gpus_per_node=1)
-    except InsufficientResources:
-        print("There were not enough resources!")

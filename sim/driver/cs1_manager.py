@@ -1,16 +1,21 @@
+from .config import CS1TrainingConfig
 from fabric import Connection
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 import yaml
 import threading
 import json
 
-STOP_FILENAME="STOP_FILE"
+STOP_FILENAME = "STOP_FILE"
 
-def get_connection(host):
+
+def get_connection(host: str):
     return Connection(host)
 
 
-def write_configuration(conn, training_config, theta_experiment_dir):
+def write_configuration(
+    conn: Connection, training_config: CS1TrainingConfig, theta_experiment_dir: Path
+):
     """
     Sets up the directories and params.yaml file for the current experiment on Medulla
     Args:
@@ -45,7 +50,7 @@ def write_configuration(conn, training_config, theta_experiment_dir):
         conn.put(fp.name, top_dir.joinpath("params.yaml").as_posix())
 
 
-def _launch_cs1_trainer(conn, training_config):
+def _launch_cs1_trainer(conn: Connection, training_config: CS1TrainingConfig):
     top_dir = training_config.medulla_experiment_path
     stop_path = top_dir.joinpath(STOP_FILENAME)
     result = conn.run(
@@ -56,7 +61,13 @@ def _launch_cs1_trainer(conn, training_config):
         pty=False,  # no pseudo-terminal
     )
 
-def launch_cs1_trainer(conn, training_config):
+
+def launch_cs1_trainer(
+    conn: Connection, training_config: CS1TrainingConfig
+) -> threading.Thread:
+    """
+    Returns a thread for the remotely-executed CS1 Training
+    """
     t = threading.Thread(
         target=_launch_cs1_trainer,
         daemon=True,
@@ -66,7 +77,12 @@ def launch_cs1_trainer(conn, training_config):
     return t
 
 
-def stop_cs1_trainer(conn, training_config, train_thread):
+def stop_cs1_trainer(
+    conn: Connection, training_config: CS1TrainingConfig, train_thread: threading.Thread
+):
+    """
+    Puts a STOP file in the CS1 training directory to signal end of training
+    """
     top_dir = training_config.medulla_experiment_path
     stop_file = top_dir.joinpath(STOP_FILENAME)
     conn.run(f"touch {stop_file.as_posix()}")

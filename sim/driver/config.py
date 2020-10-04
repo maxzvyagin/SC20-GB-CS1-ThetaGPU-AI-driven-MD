@@ -2,20 +2,26 @@
 
 import json
 import yaml
+from enum import Enum
 from pydantic import BaseSettings
 from pathlib import Path
 from typing import Optional, List, Dict
 
+class MDType(str, Enum):
+    implicit = "implicit"
+    explicit = "explicit"
 
 class MDConfig(BaseSettings):
     """
     Auto-generates configuration file for run_openmm.py
     """
+
     pdb_file: Path
     reference_pdb_file: Path
     top_file: Optional[Path]
     checkpoint_file: Optional[Path]
-    local_workdir: Path
+    local_run_dir: Path
+    sim_type: MDType
     simulation_length_ns: int = 10
     report_interval_ps: int = 50
     dt_ps: float = 0.002
@@ -24,7 +30,7 @@ class MDConfig(BaseSettings):
     result_dir: Path
     h5_scp_path: Optional[str]
     run_base_id: str
-    local_run_dir: Path = "/raid/scratch"
+    local_run_dir: Path = Path("/raid/scratch")
 
     def dump_yaml(self, file):
         yaml.dump(json.loads(self.json()), file)
@@ -34,19 +40,21 @@ class MDRunnerConfig(BaseSettings):
     """
     Global MD configuration (written one per experiment)
     """
+
     num_jobs: int
     pdb_file: Path
     reference_pdb_file: Path
     top_file: Optional[Path]
+    sim_type: MDType
     simulation_length_ns: int = 10
     report_interval_ps: int = 50
     # Length of each simulation in nanoseconds if recursive mode is active
     reeval_time_ns: int = 10
-    local_run_dir: Path = "/raid/scratch"
+    local_run_dir: Path = Path("/raid/scratch")
     md_run_command: str = "python run_openmm.py"
     md_environ_setup: List[str] = [
         'eval "$(/lus/theta-fs0/projects/RL-fold/msalim/miniconda3/bin/conda shell.bash hook)"',
-        'conda activate /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm',
+        "conda activate /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm",
     ]
 
 
@@ -59,9 +67,9 @@ class GPUTrainingConfig(BaseSettings):
 
 
 class CS1TrainingConfig(BaseSettings):
-    medulla_ssh_hostname: str = "medulla1"
+    hostname: str = "medulla1"
     medulla_experiment_path: Path
-    run_script: Path = "/data/shared/vishal/ANL-shared/cvae_gb/run_mixed.sh"
+    run_script: Path = Path("/data/shared/vishal/ANL-shared/cvae_gb/run_mixed.sh")
     sim_data_dir: Optional[Path]
     data_dir: Optional[Path]
     eval_data_dir: Optional[Path]
@@ -130,6 +138,7 @@ class ExperimentConfig(BaseSettings):
     """
     Master configuration
     """
+
     experiment_directory: Path
     md_runner: MDRunnerConfig
     outlier_detection: OutlierDetectionConfig
@@ -137,7 +146,7 @@ class ExperimentConfig(BaseSettings):
     cs1_training: Optional[CS1TrainingConfig]
 
 
-def read_yaml_config(fname):
+def read_yaml_config(fname: str) -> ExperimentConfig:
     with open(fname) as fp:
         data = yaml.safe_load(fp)
     return ExperimentConfig(**data)
