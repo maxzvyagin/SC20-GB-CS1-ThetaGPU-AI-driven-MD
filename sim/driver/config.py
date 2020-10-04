@@ -49,6 +49,7 @@ class CS1TrainingConfig(BaseSettings):
     eval_data_dir: Optional[Path]
     global_path: Optional[Path]  # files_seen36.txt
     theta_gpu_path: Optional[Path]
+    model_dir: Optional[Path]
 
     fraction: float = 0.2
     last_n_files: int = 1
@@ -97,7 +98,6 @@ class CS1TrainingConfig(BaseSettings):
 
     # Run params
     mode: str = "train"
-    model_dir: str = "./model_dir36"
     train_steps: int = 10
     eval_steps: int = 2
     runconfig_params: Optional[str] = None

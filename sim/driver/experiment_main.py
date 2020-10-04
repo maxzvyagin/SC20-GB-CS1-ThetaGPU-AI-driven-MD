@@ -6,6 +6,7 @@ from mpi_launcher import (
     MPIRun,
 )
 from config import read_yaml_config, MDConfig
+from cs1_manager import get_connection, write_configuration, launch_cs1_trainer
 
 
 def start_md_run(workdir, md_config):
@@ -53,8 +54,12 @@ def main(config_filename):
         exist_ok=False  # No duplicate experiment directories!
     )
 
+    conn = get_connection()
+    write_configuration(conn, config.cs1_training, config.experiment_directory)
+    launch_cs1_trainer(conn, config.cs1_training)
+    sys.exit(0)
     manager = ComputeNodeManager()
-    md_runs = dispatch_md_runs(manager, config)
+    #md_runs = dispatch_md_runs(manager, config)
 
     if config.cs1_training is not None:
         dispatch_cs1_trainer(config.cs1_training)

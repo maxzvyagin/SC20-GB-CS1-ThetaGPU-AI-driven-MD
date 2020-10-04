@@ -24,11 +24,13 @@ def write_configuration(conn, training_config, theta_experiment_dir):
     training_config.data_dir = top_dir.joinpath("records_loop")
     training_config.eval_data_dir = top_dir.joinpath("eval_records_loop")
     training_config.global_path = top_dir.joinpath("files_seen.txt")
+    training_config.model_dir = top_dir.joinpath("model_dir")
 
     conn.run(f"mkdir -p {top_dir}")
     conn.run(f"mkdir -p {training_config.sim_data_dir}")
     conn.run(f"mkdir -p {training_config.data_dir}")
     conn.run(f"mkdir -p {training_config.eval_data_dir}")
+    conn.run(f"mkdir -p {training_config.model_dir}")
     conn.run(f"touch  {training_config.global_path}")
 
     training_config.theta_gpu_path = theta_experiment_dir.joinpath("cvae_weights")
@@ -43,7 +45,9 @@ def write_configuration(conn, training_config, theta_experiment_dir):
 def launch_cs1_trainer(conn, training_config):
     top_dir = training_config.medulla_experiment_path
     result = conn.run(
-        "cd {top_dir} && nohup bash {training_config.run_script} >& run.log &",
+        f"export global_path={training_config.global_path} && "
+        f"export sim_data_dir={training_config.sim_data_dir} && "
+        f"cd {top_dir} && nohup bash {training_config.run_script} >& run.log &",
         pty=False,  # no pseudo-terminal
     )
 

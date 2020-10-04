@@ -47,7 +47,7 @@ cs1_training:
     mixed_precision: True
     h5_shape: [1, 36, 36] # h5 padded to, must be larger than or equal to tfrecord_shape
     tfrecord_shape: [1, 36, 36] # shape tfrecords should come in as
-    global_path: "/data/shared/vishal/ANL-shared/cvae_gb/files_seen36.txt"
+    global_path: "/data/shared/vishal/ANL-shared/cvae_gb/files_seen37.txt"
     samples_per_file: 1
     theta_gpu_path: "/projects/RL-fold/msalim/test_staging"
 
@@ -86,7 +86,7 @@ cs1_training:
 
     # Run params
     mode: "train"
-    model_dir: "./model_dir36"
+    model_dir: "./model_dir37"
     train_steps: 10
     eval_steps: 2
     runconfig_params:
