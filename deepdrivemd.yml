@@ -19,6 +19,9 @@ md_runner:
     # Report interval in picoseconds
     report_interval_ps: 50
 
+    # Integration differential in picoseconds
+    dt_ps: 0.002
+
     # Length of each simulation in nanoseconds if recursive mode is active
     reeval_time: 10
 

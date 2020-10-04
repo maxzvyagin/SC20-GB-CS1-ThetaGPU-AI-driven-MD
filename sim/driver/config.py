@@ -18,6 +18,7 @@ class MDConfig(BaseSettings):
     local_workdir: Path
     simulation_length_ns: int = 10
     report_interval_ps: int = 50
+    dt_ps: float = 0.002
     # Length of each simulation in nanoseconds if recursive mode is active
     reeval_time_ns: int = 10
     result_dir: Path

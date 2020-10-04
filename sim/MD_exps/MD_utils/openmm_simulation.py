@@ -151,7 +151,7 @@ def openmm_simulate_amber_implicit(
     if reeval_time:
         nsteps = int(reeval_time / dt)
         niter = int(sim_time / reeval_time)
-        for i in range(niter):
+        for _ in range(niter):
             if os.path.exists('../halt'):
                 return
             elif os.path.exists('new_pdb'):
@@ -298,16 +298,11 @@ def openmm_simulate_amber_explicit(
     report_freq = int(report_time / dt)
     simulation.reporters.append(app.DCDReporter(output_traj, report_freq))
 
-    # Concfigure contact map reporter
-    if output_cm is None:
-        pass
-    elif output_cm.endswith('h5'):
-        simulation.reporters.append(ContactMapReporter(output_cm, report_freq))
-    else:
-        file_prefix = os.path.join(os.path.abspath('.'), output_cm, output_cm)
-        simulation.reporters.append(SparseContactMapReporter(file_prefix,
-                                                             report_freq,
-                                                             senders=senders))
+    # Configure contact map reporter
+    file_prefix = os.path.join(os.path.abspath('.'), output_cm, output_cm)
+    simulation.reporters.append(SparseContactMapReporter(file_prefix,
+                                                         report_freq,
+                                                         senders=senders))
 
     simulation.reporters.append(
         app.StateDataReporter(
@@ -329,7 +324,7 @@ def openmm_simulate_amber_explicit(
     if reeval_time:
         nsteps = int(reeval_time / dt)
         niter = int(sim_time / reeval_time)
-        for i in range(niter):
+        for _ in range(niter):
             if os.path.exists('../halt'):
                 return
             elif os.path.exists('new_pdb'):

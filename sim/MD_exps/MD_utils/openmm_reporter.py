@@ -1,7 +1,8 @@
 import uuid
 import h5py 
 import subprocess
-import numpy as np 
+import numpy as np
+import simtk.unit as u
 from MDAnalysis.analysis import distances
 
 class CopySender:
