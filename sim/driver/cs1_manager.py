@@ -1,8 +1,10 @@
 from fabric import Connection
 from tempfile import NamedTemporaryFile
 import yaml
+import threading
 import json
 
+STOP_FILENAME="STOP_FILE"
 
 def get_connection(host):
     return Connection(host)
@@ -43,17 +45,29 @@ def write_configuration(conn, training_config, theta_experiment_dir):
         conn.put(fp.name, top_dir.joinpath("params.yaml").as_posix())
 
 
-def launch_cs1_trainer(conn, training_config):
+def _launch_cs1_trainer(conn, training_config):
     top_dir = training_config.medulla_experiment_path
+    stop_path = top_dir.joinpath(STOP_FILENAME)
     result = conn.run(
+        f"export stop_file={stop_path} && "
         f"export global_path={training_config.global_path} && "
         f"export sim_data_dir={training_config.sim_data_dir} && "
         f"cd {top_dir} && nohup bash {training_config.run_script} >& run.log &",
         pty=False,  # no pseudo-terminal
     )
 
+def launch_cs1_trainer(conn, training_config):
+    t = threading.Thread(
+        target=_launch_cs1_trainer,
+        daemon=True,
+        args=(conn, training_config),
+    )
+    t.start()
+    return t
 
-def stop_cs1_trainer(conn, training_config):
+
+def stop_cs1_trainer(conn, training_config, train_thread):
     top_dir = training_config.medulla_experiment_path
-    stop_file = top_dir.joinpath("STOP_RUN")
+    stop_file = top_dir.joinpath(STOP_FILENAME)
     conn.run(f"touch {stop_file.as_posix()}")
+    train_thread.join()

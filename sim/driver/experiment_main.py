@@ -5,8 +5,9 @@ from mpi_launcher import (
     ComputeNodeManager,
     MPIRun,
 )
+import time
 from config import read_yaml_config, MDConfig
-from cs1_manager import get_connection, write_configuration, launch_cs1_trainer
+from cs1_manager import get_connection, write_configuration, launch_cs1_trainer, stop_cs1_trainer
 
 
 def start_md_run(workdir, md_config):
@@ -56,7 +57,12 @@ def main(config_filename):
 
     conn = get_connection("medulla1")
     write_configuration(conn, config.cs1_training, config.experiment_directory)
-    launch_cs1_trainer(conn, config.cs1_training)
+    train_thread = launch_cs1_trainer(conn, config.cs1_training)
+    print("sleeping for a while")
+    time.sleep(30)
+    print("sending STOP_FILE and joining on thread...")
+    stop_cs1_trainer(conn, config.cs1_training, train_thread)
+    print("join done!")
     sys.exit(0)
     manager = ComputeNodeManager()
     #md_runs = dispatch_md_runs(manager, config)
