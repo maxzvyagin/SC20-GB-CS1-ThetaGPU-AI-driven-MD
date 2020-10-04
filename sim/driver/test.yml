@@ -20,10 +20,8 @@ md_runner:
     report_interval_ps: 50
 
     # Length of each simulation in nanoseconds if recursive mode is active
-    #reeval_time: 10
+    reeval_time_ns: 10
 
-    # Report interval in picoseconds
-    # report_interval: 50
 
 # Outlier detection parameters
 outlier_detection:

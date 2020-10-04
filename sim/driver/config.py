@@ -15,10 +15,15 @@ class MDConfig(BaseSettings):
     reference_pdb_file: Path
     top_file: Optional[Path]
     checkpoint_file: Optional[Path]
+    local_workdir: Path
     simulation_length_ns: int = 10
     report_interval_ps: int = 50
+    # Length of each simulation in nanoseconds if recursive mode is active
+    reeval_time_ns: int = 10
+    result_dir: Path
     h5_scp_path: Optional[str]
-    h5_cp_path: Optional[str]
+    run_base_id: str
+    local_run_dir: Path = "/raid/scratch"
 
     def dump_yaml(self, file):
         yaml.dump(json.loads(self.json()), file)
@@ -34,6 +39,14 @@ class MDRunnerConfig(BaseSettings):
     top_file: Optional[Path]
     simulation_length_ns: int = 10
     report_interval_ps: int = 50
+    # Length of each simulation in nanoseconds if recursive mode is active
+    reeval_time_ns: int = 10
+    local_run_dir: Path = "/raid/scratch"
+    md_run_command: str = "python run_openmm.py"
+    md_environ_setup: List[str] = [
+        'eval "$(/lus/theta-fs0/projects/RL-fold/msalim/miniconda3/bin/conda shell.bash hook)"',
+        'conda activate /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm',
+    ]
 
 
 class OutlierDetectionConfig(BaseSettings):
@@ -45,6 +58,7 @@ class GPUTrainingConfig(BaseSettings):
 
 
 class CS1TrainingConfig(BaseSettings):
+    medulla_ssh_hostname: str = "medulla1"
     medulla_experiment_path: Path
     run_script: Path = "/data/shared/vishal/ANL-shared/cvae_gb/run_mixed.sh"
     sim_data_dir: Optional[Path]
@@ -104,10 +118,10 @@ class CS1TrainingConfig(BaseSettings):
     train_steps: int = 10
     eval_steps: int = 2
     runconfig_params: Dict[str, int] = {
-          "save_checkpoints_steps": 10,
-          "keep_checkpoint_max": 3,
-          "save_summary_steps": 10,
-          "log_step_count_steps": 10,
+        "save_checkpoints_steps": 10,
+        "keep_checkpoint_max": 3,
+        "save_summary_steps": 10,
+        "log_step_count_steps": 10,
     }
 
 

@@ -1,0 +1,27 @@
+Lustre
+    /RL-fold/experiment_name/
+        run001/
+            run001.dcd
+            run001.log
+            run001.h5
+        run002/
+            0.h5
+            1.h5
+            2.h5
+            run002.dcd
+            run002.log
+ThetaGPU19
+    /raid/scratch/
+        /run001.0/
+            <uuid>.h5
+            <uuid>.h5
+            run001.log
+            run001.dcd
+        /run002.0/
+            0.h5
+            1.h5
+            run002.log
+            run002.dcd
+
+workdir: /raid/scratch/run004 -->     run_openmm.py
+cp_dir: /RL-fold/experiment-name -->
