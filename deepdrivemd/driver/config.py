@@ -7,9 +7,11 @@ from pydantic import BaseSettings
 from pathlib import Path
 from typing import Optional, List, Dict
 
+
 class MDType(str, Enum):
     implicit = "implicit"
     explicit = "explicit"
+
 
 class MDConfig(BaseSettings):
     """
@@ -29,8 +31,9 @@ class MDConfig(BaseSettings):
     reeval_time_ns: int = 10
     result_dir: Path
     h5_scp_path: Optional[str]
-    run_base_id: str
+    omm_dir_prefix: str
     local_run_dir: Path = Path("/raid/scratch")
+    input_dir: Path
 
     def dump_yaml(self, file):
         yaml.dump(json.loads(self.json()), file)

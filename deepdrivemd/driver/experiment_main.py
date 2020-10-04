@@ -21,14 +21,18 @@ def launch_md(
     gpu_ids: Set[int],
     config: MDRunnerConfig,
     md_dir: Path,
-    run_base_id: str,
+    omm_dir_prefix: str,
     h5_scp_path: Optional[str],
 ) -> MPIRun:
     """
     Start one instance of OpenMM and return the MPIRun handle
     """
     hostname = nodes[0].id
-    checkpoint_fname = md_dir.joinpath(run_base_id + ".chk")
+    checkpoint_fname = md_dir.joinpath(omm_dir_prefix + ".chk")
+
+    input_dir = md_dir.joinpath("input_" + omm_dir_prefix)  # input_run058
+    input_dir.mkdir()
+
     run_config = MDConfig(
         pdb_file=config.pdb_file,
         reference_pdb_file=config.reference_pdb_file,
@@ -38,14 +42,15 @@ def launch_md(
         simulation_length_ns=config.simulation_length_ns,
         report_interval_ps=config.report_interval_ps,
         reeval_time_ns=config.reeval_time_ns,
-        run_base_id=run_base_id,  # like "run058",
+        omm_dir_prefix=omm_dir_prefix,  # like "run058",
         local_run_dir=config.local_run_dir,
         h5_scp_path=h5_scp_path,
         result_dir=md_dir,
+        input_dir=input_dir,
     )
 
     # Push the YAML over to node-local storage, then start run
-    with NamedTemporaryFile(prefix=run_base_id) as fp:
+    with NamedTemporaryFile(prefix=omm_dir_prefix) as fp:
         run_config.dump_yaml(fp)
         fp.flush()
         Connection(hostname).put(fp.name, run_config.local_run_dir)
@@ -55,7 +60,7 @@ def launch_md(
             node_list=nodes,
             ranks_per_node=1,
             gpu_ids=gpu_ids,
-            output_file=md_dir.joinpath(run_base_id + ".out"),
+            output_file=md_dir.joinpath(omm_dir_prefix + ".out"),
         )
     return run
 
@@ -80,13 +85,13 @@ def dispatch_md_runs(
 
     for i in range(config.md_runner.num_jobs):
         nodes, gpu_ids = manager.request(num_nodes=1, gpus_per_node=1)
-        run_base_id = f"run{i:04d}"
+        omm_dir_prefix = f"run{i:04d}"
         run = launch_md(
             nodes,
             gpu_ids,
             config.md_runner,
             md_dir,
-            run_base_id,
+            omm_dir_prefix,
             h5_scp_path,
         )
         md_runs.append(run)

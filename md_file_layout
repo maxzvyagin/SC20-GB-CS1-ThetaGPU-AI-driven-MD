@@ -1,10 +1,13 @@
 Lustre
     /RL-fold/experiment_name/
-        run001/
+        md_control/
+            md001/
+            md002/
+        md001_run0/
             run001.dcd
             run001.log
             run001.h5
-        run002/
+        md002/
             0.h5
             1.h5
             2.h5

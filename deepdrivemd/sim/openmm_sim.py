@@ -1,5 +1,7 @@
 import os
 import glob
+import logging
+from pathlib import Path
 import shutil
 import random
 
@@ -7,11 +9,16 @@ import parmed as pmd
 import simtk.unit as u
 import simtk.openmm as omm
 import simtk.openmm.app as app
+from deepdrivemd.util import FileLock
+from deepdrivemd.sim.utils import concat_h5, cleanup_h5
 
-from MD_utils.utils import create_md_path
-from MD_utils.openmm_reporter import SparseContactMapReporter
+from deepdrivemd.sim.openmm_reporter import SparseContactMapReporter
+from deepdrivemd.util import CopySender
 
-def configure_amber_implicit(pdb_file, top_file, dt, platform, platform_properties):
+logger = logging.getLogger(__name__)
+
+
+def configure_amber_implicit(pdb_file, top_file, dt_ps, platform, platform_properties):
 
     # Configure system
     if top_file:
@@ -20,54 +27,46 @@ def configure_amber_implicit(pdb_file, top_file, dt, platform, platform_properti
             nonbondedMethod=app.CutoffNonPeriodic,
             nonbondedCutoff=1.0 * u.nanometer,
             constraints=app.HBonds,
-            implicitSolvent=app.OBC1
+            implicitSolvent=app.OBC1,
         )
     else:
         pdb = pmd.load_file(pdb_file)
-        forcefield = app.ForceField('amber99sbildn.xml', 'amber99_obc.xml')
+        forcefield = app.ForceField("amber99sbildn.xml", "amber99_obc.xml")
         system = forcefield.createSystem(
             pdb.topology,
             nonbondedMethod=app.CutoffNonPeriodic,
-            nonbondedCutoff=1. * u.nanometer,
-            constraints=app.HBonds
+            nonbondedCutoff=1.0 * u.nanometer,
+            constraints=app.HBonds,
         )
 
     # Congfigure integrator
-    integrator = omm.LangevinIntegrator(300 * u.kelvin, 91.0 / u.picosecond, dt)
+    integrator = omm.LangevinIntegrator(300 * u.kelvin, 91.0 / u.picosecond, dt_ps)
     integrator.setConstraintTolerance(0.00001)
 
     sim = app.Simulation(
-        pdb.topology,
-        system,
-        integrator,
-        platform,
-        platform_properties
+        pdb.topology, system, integrator, platform, platform_properties
     )
 
     # Return simulation and handle to coordinates
     return sim, pdb
 
-    
-def configure_amber_explicit(pdb_file, top_file, dt, platform, platform_properties):
-    
+
+def configure_amber_explicit(pdb_file, top_file, dt_ps, platform, platform_properties):
+
     # Configure system
     top = pmd.load_file(top_file, xyz=pdb_file)
     system = top.createSystem(
         nonbondedMethod=app.PME,
-        nonbondedCutoff=1. * u.nanometer,
-        constraints=app.HBonds
+        nonbondedCutoff=1.0 * u.nanometer,
+        constraints=app.HBonds,
     )
 
     # Congfigure integrator
-    integrator = omm.LangevinIntegrator(300 * u.kelvin, 1 / u.picosecond, dt)
+    integrator = omm.LangevinIntegrator(300 * u.kelvin, 1 / u.picosecond, dt_ps)
     system.addForce(omm.MonteCarloBarostat(1 * u.bar, 300 * u.kelvin))
 
     sim = app.Simulation(
-        top.topology,
-        system,
-        integrator,
-        platform,
-        platform_properties
+        top.topology, system, integrator, platform, platform_properties
     )
 
     # Return simulation and handle to coordinates
@@ -76,27 +75,27 @@ def configure_amber_explicit(pdb_file, top_file, dt, platform, platform_properti
 
 def configure_simulation(
     ctx,
-    check_point=None,
-    sim_type='implicit',
+    checkpoint_file=None,
+    sim_type="implicit",
     gpu_index=0,
-    dt = 0.002 * u.picoseconds,
-    report_time=10 * u.picoseconds,
-    senders=[]
-    ):
+    dt_ps=0.002 * u.picoseconds,
+    report_interval_ps=10 * u.picoseconds,
+):
 
     # Configure hardware
     try:
         platform = omm.Platform_getPlatformByName("CUDA")
-        platform_properties = {'DeviceIndex': str(gpu_index), 'CudaPrecision': 'mixed'}
+        platform_properties = {"DeviceIndex": str(gpu_index), "CudaPrecision": "mixed"}
     except Exception:
         platform = omm.Platform_getPlatformByName("OpenCL")
-        platform_properties = {'DeviceIndex': str(gpu_index)}
+        platform_properties = {"DeviceIndex": str(gpu_index)}
 
     # Select implicit or explicit solvent
-    args = ctx.pdb_file, ctx.top_file, dt, platform, platform_properties
-    if sim_type == 'implicit':
+    args = ctx.pdb_file, ctx.top_file, dt_ps, platform, platform_properties
+    if sim_type == "implicit":
         sim, coords = configure_amber_implicit(*args)
-    elif sim_type == 'explicit':
+    else:
+        assert sim_type == "explicit"
         sim, coords = configure_amber_explicit(*args)
 
     # Set simulation positions
@@ -107,33 +106,21 @@ def configure_simulation(
         sim.context.setPositions(positions / 10)
         # parmed \AA to OpenMM nm
         # TODO: remove this copy? Or do we need it?
-        coords.write_pdb('start.pdb', coordinates=positions)
+        coords.write_pdb("start.pdb", coordinates=positions)
 
     # Minimize energy and equilibrate
     sim.minimizeEnergy()
-    sim.context.setVelocitiesToTemperature(
-        300 * u.kelvin,
-        random.randint(1, 10000)
-    )
+    sim.context.setVelocitiesToTemperature(300 * u.kelvin, random.randint(1, 10000))
 
     # Configure reporters
-    report_freq = int(report_time / dt)
+    report_freq = int(report_interval_ps / dt_ps)
 
     # Configure DCD file reporter
-    sim.reporters.append(
-        app.DCDReporter(
-            ctx.traj_file,
-            report_freq
-        )
-    )
+    sim.reporters.append(app.DCDReporter(ctx.traj_file, report_freq))
 
     # Configure contact map reporter
     sim.reporters.append(
-        SparseContactMapReporter(
-            ctx.h5_prefix,
-            report_freq,
-            senders=senders
-        )
+        SparseContactMapReporter(ctx.h5_prefix, report_freq, senders=[ctx.scp_sender])
     )
 
     # Configure simulation output log
@@ -146,21 +133,16 @@ def configure_simulation(
             speed=True,
             potentialEnergy=True,
             temperature=True,
-            totalEnergy=True
+            totalEnergy=True,
         )
     )
 
     # Configure simulation checkpoint reporter
-    sim.reporters.append(
-        app.CheckpointReporter(
-            ctx.checkpoint_file,
-            report_freq
-        )
-    )
+    sim.reporters.append(app.CheckpointReporter(ctx.checkpoint_file, report_freq))
 
     # Optionally, load simulation checkpoint
-    if check_point:
-        sim.loadCheckpoint(check_point)
+    if checkpoint_file:
+        sim.loadCheckpoint(checkpoint_file)
 
     return sim
 
@@ -169,83 +151,144 @@ class SimulationContext:
     def __init__(
         self,
         pdb_file,
-        top_file=None,
-        omm_prefix='run001',
-        omm_dir='/raid/scratch',
-        traj_file='output.dcd',
-        log_file='output.log',
-        checkpoint_file='checkpnt.chk',
-        h5_prefix = 'output_cm',
-        input_dir='/raid/scratch/input',
-        sender=None
+        reference_pdb_file,
+        top_file,
+        omm_dir_prefix,
+        omm_parent_dir,
+        traj_file,
+        log_file,
+        checkpoint_file,
+        input_dir,
+        h5_scp_path,
+        result_dir,
     ):
 
         # Index for naming new omm_dirs
         self._file_id = 0
-        self._omm_prefix = omm_prefix
-        self._omm_dir = omm_dir
+        self._omm_dir_prefix = omm_dir_prefix
+        self._omm_parent_dir = omm_parent_dir
         # Input dir for receiving new PDBs, topologies and halt signal
         self._input_dir = input_dir
-        self._sender = sender
+        self._result_dir = result_dir
+        self._cp_sender = CopySender(result_dir, method="cp -r")
+
+        if h5_scp_path:
+            self.scp_sender = CopySender(h5_scp_path, method="scp")
+        else:
+            self.scp_sender = None
 
         self.pdb_file = pdb_file
         self.top_file = top_file
-        self.traj_file = os.path.join(self.omm_dir, traj_file)
-        self.log_file = os.path.join(self.omm_dir, log_file)
-        self.checkpoint_file = os.path.join(self.omm_dir, checkpoint_file)
-        self.h5_prefix = os.path.join(self.omm_dir, h5_prefix)
+        self.traj_file = os.path.join(self.workdir, traj_file)
+        self.log_file = os.path.join(self.workdir, log_file)
+        self.checkpoint_file = os.path.join(self.workdir, checkpoint_file)
 
-        self.new_context(pdb_file, top_file, copy=False)
+        self._new_context(pdb_file, top_file, copy=False)
 
     @property
-    def omm_dir(self):
-        sim_dir = f'{self._omm_prefix}_{self._file_id}'
-        return os.path.join(self._omm_dir, sim_dir)
+    def sim_prefix(self):
+        """
+        run0004_0001
+        """
+        return f"{self._omm_dir_prefix}_{self._file_id:04d}"
+
+    @property
+    def workdir(self):
+        """
+        /raid/scratch/run0004_0001
+        """
+        return os.path.join(self._omm_parent_dir, self.sim_prefix)
+
+    @property
+    def h5_prefix(self):
+        """
+        /raid/scratch/run0004_0001/run0004_0001
+        """
+        return os.path.join(self.workdir, self.sim_prefix)
+
+    def _find_in_workdir(self, pattern):
+        match = list(Path(self._input_dir).glob(pattern))
+        if match:
+            return match[0]
+        return None
+
+    def is_new_pdb(self):
+        pdb_file = self._find_in_workdir("*.pdb")
+        if not pdb_file:
+            return False
+
+        logger.info(f"New PDB file detected; launching new sim: {self.pdb_file}")
+        self._new_context(copy=True)
+
+        with FileLock(pdb_file):
+            self.pdb_file = shutil.copy(pdb_file, self.workdir)
+
+        top_file = self._find_in_workdir("*.top")
+        if top_file is not None:
+            with FileLock(top_file):
+                self.top_file = shutil.copy(top_file, self.workdir)
+        return True
 
     def copy_context(self):
         """Copy data from node local storage to file system."""
-        if self._sender is not None:
-            pass # TODO: implement, call concat_h5 in utils and copy all data to lustre
+        result_h5 = self.h5_prefix + ".h5"
+        concat_h5(self.workdir, result_h5)
+        self.scp_sender.wait_all()
+        cleanup_h5(self.workdir, keep=result_h5)
+        self._cp_sender.send(self.workdir)
 
-    def new_context(self, pdb_file, top_file, copy=True):
+    def _new_context(self, copy=True):
         # Backup previous context
         if copy:
             self.copy_context()
-        
+
         # Update run counter
         self._file_id += 1
 
         # Make new omm directory
-        os.makedirs(self.omm_dir)
-
-        # Copy PDB and topology file to omm directory
-        self.pdb_file = shutil.copy(pdb_file, self.omm_dir)
-        if top_file is not None:
-            self.top_file = shutil.copy(top_file, self.omm_dir)
+        os.makedirs(self.workdir)
 
     def halt_signal(self):
-        return 'halt' in glob.glob(self._input_dir)
-
-    def new_pdb(self):
-        # TODO: not finished
-        return glob.glob(self._input_dir)
+        return "halt" in glob.glob(self._input_dir)
 
 
 def run_simulation(
     pdb_file,
+    reference_pdb_file,
     top_file,
-    dt = 0.002 * u.picoseconds,
-    sim_time=10 * u.nanoseconds,
-    reeval_time=None,
-    omm_path="/raid/scratch",
-    **kwargs
+    checkpoint_file,
+    omm_dir_prefix,
+    local_run_dir,
+    output_traj,
+    gpu_index,
+    sim_type,
+    output_log,
+    report_interval_ps,
+    sim_time,
+    reeval_time,
+    dt_ps,
+    h5_scp_path,
+    result_dir,
+    input_dir,
 ):
 
     # Context to manage files and directory structure
-    ctx = SimulationContext(pdb_file, top_file)
+    ctx = SimulationContext(
+        pdb_file=pdb_file,
+        reference_pdb_file=reference_pdb_file,
+        top_file=top_file,
+        omm_dir_prefix=omm_dir_prefix,
+        omm_parent_dir=local_run_dir,
+        traj_file=output_traj,
+        log_file=output_log,
+        checkpoint_file=checkpoint_file,
+        h5_scp_path=h5_scp_path,
+        result_dir=result_dir,
+        input_dir=input_dir,
+    )
 
     # Number of steps to run each simulation
-    nsteps = int(sim_time / dt)
+    nsteps = int(sim_time / dt_ps)
     # Number of times to run each simulation before
     # restarting with different initial conditions
     niter = int(sim_time / reeval_time)
@@ -256,23 +299,26 @@ def run_simulation(
 
     # Loop until halt signal is sent
     while not ctx.halt_signal():
-    
-        sim = configure_simulation(ctx, dt=dt, **kwargs)
+
+        sim = configure_simulation(
+            ctx=ctx,
+            checkpoint_file=checkpoint_file,
+            gpu_index=gpu_index,
+            sim_type=sim_type,
+            dt_ps=dt_ps,
+            report_interval_ps=report_interval_ps,
+        )
 
         for _ in range(niter):
             sim.step(nsteps)
 
-            # If new PDB is found, reconfigure simulation, otherwise 
+            # If new PDB is found, reconfigure simulation, otherwise
             # continue runing old simulation
-            if os.path.exists('new.pdb'):
-                print("Found new.pdb, starting new sim...")
-                pdb_file = glob.glob(os.path.join(omm_path, '*.pdb'))[0]
-                # Initialize new directories and paths
-                ctx.new_context(pdb_file)
+            if ctx.is_new_pdb():
                 break
-            elif ctx.halt_signal():
+            if ctx.halt_signal():
+                logger.info("Detected halt signal: breaking")
                 break
 
     # Copy data generated by last simulation to file system
     ctx.copy_context()
-    

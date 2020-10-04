@@ -15,18 +15,18 @@ from MD_utils.openmm_reporter import SparseContactMapReporter
 
 
 def openmm_simulate_amber_implicit(
-        pdb_file,
-        top_file=None,
-        check_point=None,
-        GPU_index=0,
-        output_traj="output.dcd",
-        output_log="output.log",
-        output_cm=None,
-        report_time=10 * u.picoseconds,
-        sim_time=10 * u.nanoseconds,
-        reeval_time=None,
-        senders=[],
-        omm_path="/raid/scratch"
+    pdb_file,
+    top_file=None,
+    check_point=None,
+    GPU_index=0,
+    output_traj="output.dcd",
+    output_log="output.log",
+    output_cm=None,
+    report_time=10 * u.picoseconds,
+    sim_time=10 * u.nanoseconds,
+    reeval_time=None,
+    senders=[],
+    omm_path="/raid/scratch",
 ):
     """
     Start and run an OpenMM NVT simulation with Langevin integrator at 2 fs
@@ -74,62 +74,60 @@ def openmm_simulate_amber_implicit(
 
     if top_file:
         pdb = pmd.load_file(top_file, xyz=pdb_file)
-        shutil.copy2(top_file, './')
+        shutil.copy2(top_file, "./")
         system = pdb.createSystem(
             nonbondedMethod=app.CutoffNonPeriodic,
             nonbondedCutoff=1.0 * u.nanometer,
             constraints=app.HBonds,
-            implicitSolvent=app.OBC1)
+            implicitSolvent=app.OBC1,
+        )
     else:
         pdb = pmd.load_file(pdb_file)
-        forcefield = app.ForceField('amber99sbildn.xml', 'amber99_obc.xml')
+        forcefield = app.ForceField("amber99sbildn.xml", "amber99_obc.xml")
         system = forcefield.createSystem(
             pdb.topology,
             nonbondedMethod=app.CutoffNonPeriodic,
             nonbondedCutoff=1.0 * u.nanometer,
-            constraints=app.HBonds)
+            constraints=app.HBonds,
+        )
 
-    dt = 0.002 * u.picoseconds
-    integrator = omm.LangevinIntegrator(300 * u.kelvin, 91.0 / u.picosecond, dt)
+    dt_ps = 0.002 * u.picoseconds
+    integrator = omm.LangevinIntegrator(300 * u.kelvin, 91.0 / u.picosecond, dt_ps)
     integrator.setConstraintTolerance(0.00001)
 
     try:
         platform = omm.Platform_getPlatformByName("CUDA")
-        properties = {'DeviceIndex': str(GPU_index), 'CudaPrecision': 'mixed'}
+        properties = {"DeviceIndex": str(GPU_index), "CudaPrecision": "mixed"}
     except Exception:
         platform = omm.Platform_getPlatformByName("OpenCL")
-        properties = {'DeviceIndex': str(GPU_index)}
+        properties = {"DeviceIndex": str(GPU_index)}
 
-    simulation = app.Simulation(
-        pdb.topology,
-        system,
-        integrator,
-        platform,
-        properties)
+    simulation = app.Simulation(pdb.topology, system, integrator, platform, properties)
 
     if pdb.get_coordinates().shape[0] == 1:
         simulation.context.setPositions(pdb.positions)
-        shutil.copy2(pdb_file, './')
+        shutil.copy2(pdb_file, "./")
     else:
         positions = random.choice(pdb.get_coordinates())
         simulation.context.setPositions(positions / 10)
         # parmed \AA to OpenMM nm
-        pdb.write_pdb('start.pdb', coordinates=positions)
+        pdb.write_pdb("start.pdb", coordinates=positions)
 
     # equilibrate
     simulation.minimizeEnergy()
     simulation.context.setVelocitiesToTemperature(
-        300 * u.kelvin, random.randint(1, 10000))
+        300 * u.kelvin, random.randint(1, 10000)
+    )
     # simulation.step(int(100*u.picoseconds / (2*u.femtoseconds)))
 
     # setting up reports
-    report_freq = int(report_time / dt)
+    report_freq = int(report_time / dt_ps)
     simulation.reporters.append(app.DCDReporter(output_traj, report_freq))
 
-    file_prefix = os.path.join(os.path.abspath('.'), output_cm, output_cm)
-    simulation.reporters.append(SparseContactMapReporter(file_prefix,
-                                                         report_freq,
-                                                         senders=senders))
+    file_prefix = os.path.join(os.path.abspath("."), output_cm, output_cm)
+    simulation.reporters.append(
+        SparseContactMapReporter(file_prefix, report_freq, senders=senders)
+    )
 
     simulation.reporters.append(
         app.StateDataReporter(
@@ -140,31 +138,32 @@ def openmm_simulate_amber_implicit(
             speed=True,
             potentialEnergy=True,
             temperature=True,
-            totalEnergy=True))
-    simulation.reporters.append(
-        app.CheckpointReporter(
-            'checkpnt.chk', report_freq))
+            totalEnergy=True,
+        )
+    )
+    simulation.reporters.append(app.CheckpointReporter("checkpnt.chk", report_freq))
 
     if check_point:
         simulation.loadCheckpoint(check_point)
 
     if reeval_time:
-        nsteps = int(reeval_time / dt)
+        nsteps = int(reeval_time / dt_ps)
         niter = int(sim_time / reeval_time)
         for _ in range(niter):
-            if os.path.exists('../halt'):
+            if os.path.exists("../halt"):
                 return
-            elif os.path.exists('new_pdb'):
+            elif os.path.exists("new_pdb"):
                 print("Found new.pdb, starting new sim...")
 
                 # cleaning up old runs
                 del simulation
                 # starting new simulation with new pdb
-                with open('new_pdb', 'r') as fp:
+                with open("new_pdb", "r") as fp:
                     new_pdb = fp.read().split()[0]
                 os.chdir(work_dir)
                 openmm_simulate_amber_implicit(
-                    new_pdb, top_file=top_file,
+                    new_pdb,
+                    top_file=top_file,
                     check_point=None,
                     GPU_index=GPU_index,
                     output_traj=output_traj,
@@ -173,18 +172,19 @@ def openmm_simulate_amber_implicit(
                     report_time=report_time,
                     sim_time=sim_time,
                     reeval_time=reeval_time,
-                    senders=senders
+                    senders=senders,
                 )
             else:
                 simulation.step(nsteps)
     else:
-        nsteps = int(sim_time / dt)
+        nsteps = int(sim_time / dt_ps)
         simulation.step(nsteps)
 
     os.chdir(work_dir)
-    if not os.path.exists('../halt'):
+    if not os.path.exists("../halt"):
         openmm_simulate_amber_implicit(
-            pdb_file, top_file=top_file,
+            pdb_file,
+            top_file=top_file,
             check_point=None,
             GPU_index=GPU_index,
             output_traj=output_traj,
@@ -193,24 +193,24 @@ def openmm_simulate_amber_implicit(
             report_time=report_time,
             sim_time=sim_time,
             reeval_time=reeval_time,
-            senders=senders
+            senders=senders,
         )
     else:
         return
 
 
 def openmm_simulate_amber_explicit(
-        pdb_file,
-        top_file=None,
-        check_point=None,
-        GPU_index=0,
-        output_traj="output.dcd",
-        output_log="output.log",
-        output_cm=None,
-        report_time=10 * u.picoseconds,
-        sim_time=10 * u.nanoseconds,
-        reeval_time=None,
-        senders=[]
+    pdb_file,
+    top_file=None,
+    check_point=None,
+    GPU_index=0,
+    output_traj="output.dcd",
+    output_log="output.log",
+    output_cm=None,
+    report_time=10 * u.picoseconds,
+    sim_time=10 * u.nanoseconds,
+    reeval_time=None,
+    senders=[],
 ):
     """
     Start and run an OpenMM NPT simulation with Langevin integrator at 2 fs
@@ -259,50 +259,45 @@ def openmm_simulate_amber_explicit(
     top = pmd.load_file(top_file, xyz=pdb_file)
 
     system = top.createSystem(
-        nonbondedMethod=app.PME,
-        nonbondedCutoff=1 * u.nanometer,
-        constraints=app.HBonds)
-    dt = 0.002 * u.picoseconds
-    integrator = omm.LangevinIntegrator(300 * u.kelvin, 1 / u.picosecond, dt)
+        nonbondedMethod=app.PME, nonbondedCutoff=1 * u.nanometer, constraints=app.HBonds
+    )
+    dt_ps = 0.002 * u.picoseconds
+    integrator = omm.LangevinIntegrator(300 * u.kelvin, 1 / u.picosecond, dt_ps)
     system.addForce(omm.MonteCarloBarostat(1 * u.bar, 300 * u.kelvin))
 
     try:
         platform = omm.Platform_getPlatformByName("CUDA")
-        properties = {'DeviceIndex': str(GPU_index), 'CudaPrecision': 'mixed'}
+        properties = {"DeviceIndex": str(GPU_index), "CudaPrecision": "mixed"}
     except Exception:
         platform = omm.Platform_getPlatformByName("OpenCL")
-        properties = {'DeviceIndex': str(GPU_index)}
+        properties = {"DeviceIndex": str(GPU_index)}
 
-    simulation = app.Simulation(
-        top.topology,
-        system,
-        integrator,
-        platform,
-        properties)
+    simulation = app.Simulation(top.topology, system, integrator, platform, properties)
 
     # simulation.context.setPositions(top.positions)
     if top.get_coordinates().shape[0] == 1:
         simulation.context.setPositions(top.positions)
-        shutil.copy2(pdb_file, './')
+        shutil.copy2(pdb_file, "./")
     else:
         positions = random.choice(top.get_coordinates())
         simulation.context.setPositions(positions / 10)
         # parmed \AA to OpenMM nm
-        top.write_pdb('start.pdb', coordinates=positions)
+        top.write_pdb("start.pdb", coordinates=positions)
 
     simulation.minimizeEnergy()
     simulation.context.setVelocitiesToTemperature(
-        300 * u.kelvin, random.randint(1, 10000))
+        300 * u.kelvin, random.randint(1, 10000)
+    )
     # simulation.step(int(100*u.picoseconds / (2*u.femtoseconds)))
 
-    report_freq = int(report_time / dt)
+    report_freq = int(report_time / dt_ps)
     simulation.reporters.append(app.DCDReporter(output_traj, report_freq))
 
     # Configure contact map reporter
-    file_prefix = os.path.join(os.path.abspath('.'), output_cm, output_cm)
-    simulation.reporters.append(SparseContactMapReporter(file_prefix,
-                                                         report_freq,
-                                                         senders=senders))
+    file_prefix = os.path.join(os.path.abspath("."), output_cm, output_cm)
+    simulation.reporters.append(
+        SparseContactMapReporter(file_prefix, report_freq, senders=senders)
+    )
 
     simulation.reporters.append(
         app.StateDataReporter(
@@ -313,31 +308,32 @@ def openmm_simulate_amber_explicit(
             speed=True,
             potentialEnergy=True,
             temperature=True,
-            totalEnergy=True))
-    simulation.reporters.append(
-        app.CheckpointReporter(
-            'checkpnt.chk', report_freq))
+            totalEnergy=True,
+        )
+    )
+    simulation.reporters.append(app.CheckpointReporter("checkpnt.chk", report_freq))
 
     if check_point:
         simulation.loadCheckpoint(check_point)
 
     if reeval_time:
-        nsteps = int(reeval_time / dt)
+        nsteps = int(reeval_time / dt_ps)
         niter = int(sim_time / reeval_time)
         for _ in range(niter):
-            if os.path.exists('../halt'):
+            if os.path.exists("../halt"):
                 return
-            elif os.path.exists('new_pdb'):
+            elif os.path.exists("new_pdb"):
                 print("Found new.pdb, starting new sim...")
 
                 # cleaning up old runs
                 del simulation
                 # starting new simulation with new pdb
-                with open('new_pdb', 'r') as fp:
+                with open("new_pdb", "r") as fp:
                     new_pdb = fp.read().split()[0]
                 os.chdir(work_dir)
                 openmm_simulate_amber_explicit(
-                    new_pdb, top_file=top_file,
+                    new_pdb,
+                    top_file=top_file,
                     check_point=None,
                     GPU_index=GPU_index,
                     output_traj=output_traj,
@@ -346,18 +342,19 @@ def openmm_simulate_amber_explicit(
                     report_time=report_time,
                     sim_time=sim_time,
                     reeval_time=reeval_time,
-                    senders=senders
+                    senders=senders,
                 )
             else:
                 simulation.step(nsteps)
     else:
-        nsteps = int(sim_time / dt)
+        nsteps = int(sim_time / dt_ps)
         simulation.step(nsteps)
 
     os.chdir(work_dir)
-    if not os.path.exists('../halt'):
+    if not os.path.exists("../halt"):
         openmm_simulate_amber_explicit(
-            pdb_file, top_file=top_file,
+            pdb_file,
+            top_file=top_file,
             check_point=None,
             GPU_index=GPU_index,
             output_traj=output_traj,
@@ -366,7 +363,7 @@ def openmm_simulate_amber_explicit(
             report_time=report_time,
             sim_time=sim_time,
             reeval_time=reeval_time,
-            senders=senders
+            senders=senders,
         )
     else:
         return
