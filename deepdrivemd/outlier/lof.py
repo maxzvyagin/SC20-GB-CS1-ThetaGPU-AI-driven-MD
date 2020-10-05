@@ -37,6 +37,7 @@ class OutlierDetectionContext:
         self,
         pdb_file,
         reference_pdb_file,
+        local_scratch_dir,
         md_dir,
         cvae_dir,
         **kwargs,
@@ -45,23 +46,13 @@ class OutlierDetectionContext:
         self.reference_pdb_file = Path(reference_pdb_file).resolve()
         self.md_dir = Path(md_dir).resolve()
         self.cvae_dir = Path(cvae_dir).resolve()
+        self._local_scratch_dir = local_scratch_dir
 
         self._cvae_weights_file = None
         self._last_acquired_cvae_lock = None
         self._md_input_dirs = None
         self._h5_dcd_map = {}
         self._pdb_outlier_queue = queue.PriorityQueue()
-
-    def push_new_outlier(self, pdb_filename, outlier_score):
-        self._pdb_outlier_queue.put_nowait((outlier_score, pdb_filename))
-
-    def get_outlier_pdb_filename(self):
-        try:
-            _, pdb_filename = self._pdb_outlier_queue.get(block=False)
-        except queue.Empty:
-            return None
-        else:
-            return pdb_filename
 
     @property
     def h5_files(self):
@@ -81,6 +72,49 @@ class OutlierDetectionContext:
             self._md_input_dirs = list(self.md_dir.glob("input_*"))
         return self._md_input_dirs
 
+    def put_outlier(self, dcd_filename, frame_index, created_time, outlier_score):
+        assert created_time > 0
+        assert outlier_score < 0
+        score = (-1 * created_time, outlier_score)
+        outlier = (dcd_filename, frame_index)
+        self._pdb_outlier_queue.put_nowait((score, outlier))
+
+    def _get_outlier(self):
+        try:
+            _, outlier = self._pdb_outlier_queue.get(block=False)
+        except queue.Empty:
+            return None
+        else:
+            return outlier
+
+    def get_open_md_input_slots(self):
+        return [d for d in self.md_input_dirs if not list(d.glob("*.pdb"))]
+
+    def generate_pdb_file(self, dcd_filename: Path, frame_index: int) -> str:
+        outlier_pdb_fname = dcd_filename.with_suffix("").name + f"_{frame_index}.pdb"
+        outlier_pdb_path = self._local_scratch_dir.joinpath(outlier_pdb_fname)
+
+        pdb_path = dcd_filename.with_suffix(".pdb")
+        mda_traj = mda.Universe(pdb_path.as_posix(), dcd_filename.as_posix())
+        mda_traj.trajectory[frame_index]
+
+        PDB = mda.Writer(outlier_pdb_path.as_posix())
+        PDB.write(mda_traj.atoms)
+        return outlier_pdb_path
+
+    def dispatch_next_outlier(self, input_dir):
+        outlier = self._get_outlier()
+        if outlier is None:
+            return False
+
+        dcd_filename, frame_index = outlier
+        logger.info(f"Creating outlier .pdb from {dcd_filename} frame {frame_index}")
+        local_pdb_path = self.generate_pdb_file(dcd_filename, frame_index)
+        logger.info("outlier .pdb write done")
+        target = input_dir.joinpath(local_pdb_path)
+        with FileLock(target):
+            shutil.move(local_pdb_path, target)
+
     def rescan_h5_dcd(self):
         for done_path in self.md_dir.glob("**/DONE"):
             h5 = list(done_path.parent.glob("*.h5"))[0]
@@ -94,11 +128,6 @@ class OutlierDetectionContext:
         with FileLock(self._cvae_weights_file):
             self._last_acquired_cvae_lock = self._cvae_weights_file
             return self._cvae_weights_file
-
-    def get_open_md_input_slot(self):
-        for input_dir in self.md_input_dirs:
-            if not list(input_dir.glob("*.pdb")):
-                return input_dir
 
     def update_model(self):
         """Gets most recent model weights."""

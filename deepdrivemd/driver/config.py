@@ -16,7 +16,7 @@ class MDType(str, Enum):
 class LoggingConfig(BaseSettings):
     level: str = "DEBUG"
     format: str = (
-        "'%(asctime)s|%(process)d|%(levelname)8s|%(name)s:%(lineno)s] %(message)s'"
+        "'%(asctime)s|%(process)d|%(thread)d|%(levelname)8s|%(name)s:%(lineno)s] %(message)s'"
     )
     datefmt: str = "%d-%b-%Y %H:%M:%S"
     buffer_num_records: int = 10
@@ -125,6 +125,7 @@ class OutlierDetectionConfig(BaseSettings):
     model_params: CVAEModelConfig
     sklearn_num_cpus: int = 16
     logging: LoggingConfig
+    local_scratch_dir: Path = Path("/raid/scratch")
 
 
 class GPUTrainingConfig(CVAEModelConfig):
