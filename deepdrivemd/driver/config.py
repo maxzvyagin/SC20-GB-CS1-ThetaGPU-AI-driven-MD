@@ -60,25 +60,7 @@ class MDRunnerConfig(BaseSettings):
     ]
 
 
-class OutlierDetectionConfig(BaseSettings):
-    num_jobs: int
-
-
-class GPUTrainingConfig(BaseSettings):
-    pass
-
-
-class CS1TrainingConfig(BaseSettings):
-    hostname: str = "medulla1"
-    medulla_experiment_path: Path
-    run_script: Path = Path("/data/shared/vishal/ANL-shared/cvae_gb/run_mixed.sh")
-    sim_data_dir: Optional[Path]
-    data_dir: Optional[Path]
-    eval_data_dir: Optional[Path]
-    global_path: Optional[Path]  # files_seen36.txt
-    theta_gpu_path: Optional[Path]
-    model_dir: Optional[Path]
-
+class CVAEModelConfig(BaseSettings):
     fraction: float = 0.2
     last_n_files: int = 1
     last_n_files_eval: int = 1
@@ -120,6 +102,33 @@ class CS1TrainingConfig(BaseSettings):
     allowed_optimizers: List[str] = ["sgd", "sgdm", "adam", "rmsprop"]
     learning_rate: float = 2.0e-5
     loss_scale: float = 1
+
+
+class OutlierDetectionConfig(BaseSettings):
+    md_dir: Path  # MD simulation direction
+    cvae_dir: Path  # CVAE model directory
+    pdb_file: Path
+    reference_pdb_file: Path
+    num_outliers: int = 500
+    timeout_ns: float = 10.0
+    model_params: CVAEModelConfig
+    sklearn_num_cpus: int = 16
+
+
+class GPUTrainingConfig(CVAEModelConfig):
+    pass
+
+
+class CS1TrainingConfig(CVAEModelConfig):
+    hostname: str = "medulla1"
+    medulla_experiment_path: Path
+    run_script: Path = Path("/data/shared/vishal/ANL-shared/cvae_gb/run_mixed.sh")
+    sim_data_dir: Optional[Path]
+    data_dir: Optional[Path]
+    eval_data_dir: Optional[Path]
+    global_path: Optional[Path]  # files_seen36.txt
+    theta_gpu_path: Optional[Path]
+    model_dir: Optional[Path]
 
     # Logging params are not supported on CS-1 and are disabled in run.py.
     metrics: bool = True

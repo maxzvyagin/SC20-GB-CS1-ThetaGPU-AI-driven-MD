@@ -154,8 +154,10 @@ class SimulationContext:
         self._omm_dir_prefix = omm_dir_prefix
         self._omm_parent_dir = omm_parent_dir
         # Input dir for receiving new PDBs, topologies and halt signal
-        self._input_dir = input_dir
+        self._input_dir = input_dir  # md_runs/input_run0004
         self._result_dir = result_dir
+
+        # Copies /raid/scratch/run0004_0001 to /experiment_dir/md_runs
         self._cp_sender = CopySender(result_dir, method="cp -r")
 
         if h5_scp_path:
@@ -197,14 +199,14 @@ class SimulationContext:
     def log_file(self):
         return os.path.join(self.workdir, self.sim_prefix + ".log")
 
-    def _find_in_workdir(self, pattern):
+    def _find_in_input_dir(self, pattern):
         match = list(Path(self._input_dir).glob(pattern))
         if match:
             return match[0]
         return None
 
     def is_new_pdb(self):
-        pdb_file = self._find_in_workdir("*.pdb")
+        pdb_file = self._find_in_input_dir("*.pdb")
         if pdb_file is None:
             return False
 
@@ -212,12 +214,12 @@ class SimulationContext:
         self._new_context(copy=True)
 
         with FileLock(pdb_file):
-            self.pdb_file = shutil.copy(pdb_file, self.workdir)
+            self.pdb_file = shutil.move(pdb_file.as_posix(), self.workdir)
 
-        top_file = self._find_in_workdir("*.top")
+        top_file = self._find_in_input_dir("*.top")
         if top_file is not None:
             with FileLock(top_file):
-                self.top_file = shutil.copy(top_file, self.workdir)
+                self.top_file = shutil.move(top_file.as_posix(), self.workdir)
         return True
 
     def copy_context(self):
@@ -226,7 +228,7 @@ class SimulationContext:
         concat_h5(self.workdir, result_h5)
         self.scp_sender.wait_all()
         cleanup_h5(self.workdir, keep=result_h5)
-        self._cp_sender.send(self.workdir)
+        self._cp_sender.send(self.workdir, touch_done_file=True)
 
     def _new_context(self, copy=True):
         # Backup previous context

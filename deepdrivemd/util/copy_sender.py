@@ -1,3 +1,4 @@
+from pathlib import Path
 import subprocess
 import logging
 import time
@@ -11,8 +12,17 @@ class CopySender:
         self.target = target
         self.processes = []
 
-    def send(self, path):
+    def send(
+        self,
+        path,
+        touch_done_file=False,
+    ):
         args = f"{self.method} {path} {self.target}"
+        if touch_done_file:
+            # TODO: Socket for confirming transfer done would be better
+            done_file = Path(self.target).joinpath(path.name).joinpath("DONE")
+            args += f" && touch {done_file}"
+
         logger.debug(f"Starting transfer: {args}")
         p = subprocess.Popen(args, shell=True)
         self.processes.append(p)
