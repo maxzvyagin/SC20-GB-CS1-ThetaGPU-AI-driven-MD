@@ -34,6 +34,7 @@ class SparseContactMapReporter:
         self,
         file,
         reportInterval,
+        reference_pdb_file,
         selection="CA",
         threshold=8.0,
         batch_size=2,  # 1024,
@@ -42,6 +43,7 @@ class SparseContactMapReporter:
 
         self._file_idx = 0
         self._base_name = file
+        self._reference_pdb_file = reference_pdb_file
         self._report_interval = reportInterval
         self._selection = selection
         self._threshold = threshold

@@ -15,6 +15,15 @@ from .cs1_manager import (
     stop_cs1_trainer,
 )
 
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="'%(asctime)s|%(process)d|%(levelname)8s|%(name)s:%(lineno)s] %(message)s'",
+    datefmt="%d-%b-%Y %H:%M:%S",
+)
+logger = logging.getLogger(__name__)
+
 
 def launch_md(
     nodes: List[ComputeNode],
@@ -28,7 +37,6 @@ def launch_md(
     Start one instance of OpenMM and return the MPIRun handle
     """
     hostname = nodes[0].id
-    checkpoint_fname = md_dir.joinpath(omm_dir_prefix + ".chk")
 
     input_dir = md_dir.joinpath("input_" + omm_dir_prefix)  # input_run058
     input_dir.mkdir()
@@ -38,7 +46,6 @@ def launch_md(
         reference_pdb_file=config.reference_pdb_file,
         top_file=config.top_file,
         sim_type=config.sim_type,
-        checkpoint_file=checkpoint_fname,
         simulation_length_ns=config.simulation_length_ns,
         report_interval_ps=config.report_interval_ps,
         reeval_time_ns=config.reeval_time_ns,

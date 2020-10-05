@@ -5,11 +5,15 @@ from tempfile import NamedTemporaryFile
 import yaml
 import threading
 import json
+import logging
 
 STOP_FILENAME = "STOP_FILE"
 
+logger = logging.getLogger(__name__)
+
 
 def get_connection(host: str):
+    logger.info(f"Creating fabric.Connection to: {host}")
     return Connection(host)
 
 
@@ -34,6 +38,7 @@ def write_configuration(
     training_config.global_path = top_dir.joinpath("files_seen.txt")
     training_config.model_dir = top_dir.joinpath("model_dir")
 
+    logger.info(f"Creating {top_dir} on {remote_host}")
     conn.run(f"mkdir -p {top_dir}")
     conn.run(f"mkdir -p {training_config.sim_data_dir}")
     conn.run(f"mkdir -p {training_config.data_dir}")

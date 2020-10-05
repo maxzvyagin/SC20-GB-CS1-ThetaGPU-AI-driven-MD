@@ -75,7 +75,6 @@ def configure_amber_explicit(pdb_file, top_file, dt_ps, platform, platform_prope
 
 def configure_simulation(
     ctx,
-    checkpoint_file=None,
     sim_type="implicit",
     gpu_index=0,
     dt_ps=0.002 * u.picoseconds,
@@ -94,8 +93,7 @@ def configure_simulation(
     args = ctx.pdb_file, ctx.top_file, dt_ps, platform, platform_properties
     if sim_type == "implicit":
         sim, coords = configure_amber_implicit(*args)
-    else:
-        assert sim_type == "explicit"
+    elif sim_type == "explicit":
         sim, coords = configure_amber_explicit(*args)
 
     # Set simulation positions
@@ -104,9 +102,6 @@ def configure_simulation(
     else:
         positions = random.choice(coords.get_coordinates())
         sim.context.setPositions(positions / 10)
-        # parmed \AA to OpenMM nm
-        # TODO: remove this copy? Or do we need it?
-        coords.write_pdb("start.pdb", coordinates=positions)
 
     # Minimize energy and equilibrate
     sim.minimizeEnergy()
@@ -120,7 +115,9 @@ def configure_simulation(
 
     # Configure contact map reporter
     sim.reporters.append(
-        SparseContactMapReporter(ctx.h5_prefix, report_freq, senders=[ctx.scp_sender])
+        SparseContactMapReporter(
+            ctx.h5_prefix, report_freq, ctx.reference_pdb_file, senders=[ctx.scp_sender]
+        )
     )
 
     # Configure simulation output log
@@ -136,14 +133,6 @@ def configure_simulation(
             totalEnergy=True,
         )
     )
-
-    # Configure simulation checkpoint reporter
-    sim.reporters.append(app.CheckpointReporter(ctx.checkpoint_file, report_freq))
-
-    # Optionally, load simulation checkpoint
-    if checkpoint_file:
-        sim.loadCheckpoint(checkpoint_file)
-
     return sim
 
 
@@ -155,9 +144,6 @@ class SimulationContext:
         top_file,
         omm_dir_prefix,
         omm_parent_dir,
-        traj_file,
-        log_file,
-        checkpoint_file,
         input_dir,
         h5_scp_path,
         result_dir,
@@ -179,11 +165,8 @@ class SimulationContext:
 
         self.pdb_file = pdb_file
         self.top_file = top_file
-        self.traj_file = os.path.join(self.workdir, traj_file)
-        self.log_file = os.path.join(self.workdir, log_file)
-        self.checkpoint_file = os.path.join(self.workdir, checkpoint_file)
-
-        self._new_context(pdb_file, top_file, copy=False)
+        self.reference_pdb_file = reference_pdb_file
+        self._new_context(copy=False)
 
     @property
     def sim_prefix(self):
@@ -206,6 +189,14 @@ class SimulationContext:
         """
         return os.path.join(self.workdir, self.sim_prefix)
 
+    @property
+    def traj_file(self):
+        return os.path.join(self.workdir, self.sim_prefix + ".dcd")
+
+    @property
+    def log_file(self):
+        return os.path.join(self.workdir, self.sim_prefix + ".log")
+
     def _find_in_workdir(self, pattern):
         match = list(Path(self._input_dir).glob(pattern))
         if match:
@@ -214,7 +205,7 @@ class SimulationContext:
 
     def is_new_pdb(self):
         pdb_file = self._find_in_workdir("*.pdb")
-        if not pdb_file:
+        if pdb_file is None:
             return False
 
         logger.info(f"New PDB file detected; launching new sim: {self.pdb_file}")
@@ -256,13 +247,10 @@ def run_simulation(
     pdb_file,
     reference_pdb_file,
     top_file,
-    checkpoint_file,
     omm_dir_prefix,
     local_run_dir,
-    output_traj,
     gpu_index,
     sim_type,
-    output_log,
     report_interval_ps,
     sim_time,
     reeval_time,
@@ -279,9 +267,6 @@ def run_simulation(
         top_file=top_file,
         omm_dir_prefix=omm_dir_prefix,
         omm_parent_dir=local_run_dir,
-        traj_file=output_traj,
-        log_file=output_log,
-        checkpoint_file=checkpoint_file,
         h5_scp_path=h5_scp_path,
         result_dir=result_dir,
         input_dir=input_dir,
@@ -302,7 +287,6 @@ def run_simulation(
 
         sim = configure_simulation(
             ctx=ctx,
-            checkpoint_file=checkpoint_file,
             gpu_index=gpu_index,
             sim_type=sim_type,
             dt_ps=dt_ps,

@@ -21,7 +21,6 @@ class MDConfig(BaseSettings):
     pdb_file: Path
     reference_pdb_file: Path
     top_file: Optional[Path]
-    checkpoint_file: Optional[Path]
     local_run_dir: Path
     sim_type: MDType
     simulation_length_ns: int = 10
