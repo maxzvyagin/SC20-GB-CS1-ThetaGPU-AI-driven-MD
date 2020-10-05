@@ -52,6 +52,13 @@ class SparseContactMapReporter:
 
         self._init_batch()
 
+    def _init_reference(self):
+        u_ref = mda.Universe(self._reference_pdb_file)
+        atoms = u_ref.select_atoms('name CA and protein')
+        center = atoms.center(weights=atoms.masses)
+        # https://docs.mdanalysis.org/1.0.0/documentation_pages/analysis/align.html#MDAnalysis.analysis.align._fit_to
+
+
     def _init_batch(self):
         # Frame counter for writing batches to HDF5
         self._num_frames = 0

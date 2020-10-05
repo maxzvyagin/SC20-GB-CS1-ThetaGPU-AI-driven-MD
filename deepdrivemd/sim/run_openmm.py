@@ -1,8 +1,7 @@
-import argparse
 import os
 import yaml
+import argparse
 import simtk.unit as u
-from deepdrivemd.util import CopySender
 from deepdrivemd.sim.openmm_sim import run_simulation
 
 

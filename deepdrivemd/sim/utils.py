@@ -6,6 +6,7 @@ import numpy as np
 
 def concat_h5(workdir, outfile):
     h5_files = glob.glob(os.path.join(workdir, "*.h5"))
+    # Sort files by time of creation
     h5_files = sorted(h5_files, key=lambda file: os.path.getctime(file))
 
     fields = ["contact_map", "rmsd"]
