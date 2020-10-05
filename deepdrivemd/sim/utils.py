@@ -2,6 +2,9 @@ import os
 import glob
 import h5py
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def concat_h5(workdir, outfile):
@@ -47,6 +50,9 @@ def concat_h5(workdir, outfile):
 
 def cleanup_h5(workdir, keep):
     h5_files = glob.glob(os.path.join(workdir, "*.h5"))
+    count = 0
     for fname in h5_files:
         if fname != keep:
             os.remove(fname)
+            count += 1
+    logger.debug(f"Cleaned up {count} .h5 files in {workdir}")

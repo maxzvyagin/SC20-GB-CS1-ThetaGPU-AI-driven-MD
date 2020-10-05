@@ -38,7 +38,7 @@ def write_configuration(
     training_config.global_path = top_dir.joinpath("files_seen.txt")
     training_config.model_dir = top_dir.joinpath("model_dir")
 
-    logger.info(f"Creating {top_dir} on {remote_host}")
+    logger.info(f"Creating {top_dir} on {conn.host}")
     conn.run(f"mkdir -p {top_dir}")
     conn.run(f"mkdir -p {training_config.sim_data_dir}")
     conn.run(f"mkdir -p {training_config.data_dir}")

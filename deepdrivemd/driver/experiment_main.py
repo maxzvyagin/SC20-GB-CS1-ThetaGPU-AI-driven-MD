@@ -7,7 +7,13 @@ from pathlib import Path
 from fabric import Connection
 
 from .mpi_launcher import ComputeNodeManager, MPIRun, ComputeNode
-from .config import read_yaml_config, MDConfig, MDRunnerConfig, ExperimentConfig
+from .config import (
+    read_yaml_config,
+    MDConfig,
+    MDRunnerConfig,
+    ExperimentConfig,
+    LoggingConfig,
+)
 from .cs1_manager import (
     get_connection,
     write_configuration,
@@ -15,13 +21,9 @@ from .cs1_manager import (
     stop_cs1_trainer,
 )
 
+from deepdrivemd.util import config_logging
 import logging
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="'%(asctime)s|%(process)d|%(levelname)8s|%(name)s:%(lineno)s] %(message)s'",
-    datefmt="%d-%b-%Y %H:%M:%S",
-)
 logger = logging.getLogger(__name__)
 
 
@@ -32,6 +34,7 @@ def launch_md(
     md_dir: Path,
     omm_dir_prefix: str,
     h5_scp_path: Optional[str],
+    logging_config: LoggingConfig,
 ) -> MPIRun:
     """
     Start one instance of OpenMM and return the MPIRun handle
@@ -54,6 +57,7 @@ def launch_md(
         h5_scp_path=h5_scp_path,
         result_dir=md_dir,
         input_dir=input_dir,
+        logging=logging_config,
     )
 
     # Push the YAML over to node-local storage, then start run
@@ -100,6 +104,7 @@ def dispatch_md_runs(
             md_dir,
             omm_dir_prefix,
             h5_scp_path,
+            logging_config=config.logging,
         )
         md_runs.append(run)
     return md_runs
@@ -111,6 +116,9 @@ def main(config_filename: str):
     config.experiment_directory.mkdir(
         exist_ok=False  # No duplicate experiment directories!
     )
+
+    log_fname = config.experiment_directory.joinpath("experiment_main.log").as_posix()
+    config_logging(filename=log_fname, **config.logging.dict())
 
     if config.cs1_training is not None:
         conn = get_connection(config.cs1_training.hostname)

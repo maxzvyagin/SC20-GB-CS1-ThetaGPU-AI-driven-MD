@@ -13,6 +13,16 @@ class MDType(str, Enum):
     explicit = "explicit"
 
 
+class LoggingConfig(BaseSettings):
+    level: str = "DEBUG"
+    format: str = (
+        "'%(asctime)s|%(process)d|%(levelname)8s|%(name)s:%(lineno)s] %(message)s'"
+    )
+    datefmt: str = "%d-%b-%Y %H:%M:%S"
+    buffer_num_records: int = 10
+    flush_period: int = 30
+
+
 class MDConfig(BaseSettings):
     """
     Auto-generates configuration file for run_openmm.py
@@ -33,6 +43,7 @@ class MDConfig(BaseSettings):
     omm_dir_prefix: str
     local_run_dir: Path = Path("/raid/scratch")
     input_dir: Path
+    logging: LoggingConfig
 
     def dump_yaml(self, file):
         yaml.dump(json.loads(self.json()), file)
@@ -113,6 +124,7 @@ class OutlierDetectionConfig(BaseSettings):
     timeout_ns: float = 10.0
     model_params: CVAEModelConfig
     sklearn_num_cpus: int = 16
+    logging: LoggingConfig
 
 
 class GPUTrainingConfig(CVAEModelConfig):
@@ -155,6 +167,8 @@ class ExperimentConfig(BaseSettings):
     outlier_detection: OutlierDetectionConfig
     gpu_training: Optional[GPUTrainingConfig]
     cs1_training: Optional[CS1TrainingConfig]
+
+    logging: LoggingConfig
 
 
 def read_yaml_config(fname: str) -> ExperimentConfig:

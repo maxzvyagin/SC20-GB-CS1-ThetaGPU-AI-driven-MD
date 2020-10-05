@@ -13,7 +13,7 @@ from deepdrivemd.util import FileLock
 from deepdrivemd.sim.utils import concat_h5, cleanup_h5
 
 from deepdrivemd.sim.openmm_reporter import SparseContactMapReporter
-from deepdrivemd.util import CopySender
+from deepdrivemd.util import LocalCopySender, RemoteCopySender
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +80,7 @@ def configure_simulation(
     dt_ps=0.002 * u.picoseconds,
     report_interval_ps=10 * u.picoseconds,
 ):
-
+    logger.info(f"configure_simulation: {sim_type} {ctx.pdb_file}")
     # Configure hardware
     try:
         platform = omm.Platform_getPlatformByName("CUDA")
@@ -93,7 +93,8 @@ def configure_simulation(
     args = ctx.pdb_file, ctx.top_file, dt_ps, platform, platform_properties
     if sim_type == "implicit":
         sim, coords = configure_amber_implicit(*args)
-    elif sim_type == "explicit":
+    else:
+        assert sim_type == "explicit"
         sim, coords = configure_amber_explicit(*args)
 
     # Set simulation positions
@@ -158,10 +159,10 @@ class SimulationContext:
         self._result_dir = result_dir
 
         # Copies /raid/scratch/run0004_0001 to /experiment_dir/md_runs
-        self._cp_sender = CopySender(result_dir, method="cp -r")
+        self._cp_sender = LocalCopySender(result_dir)
 
         if h5_scp_path:
-            self.scp_sender = CopySender(h5_scp_path, method="scp")
+            self.scp_sender = RemoteCopySender(h5_scp_path)
         else:
             self.scp_sender = None
 
@@ -225,8 +226,14 @@ class SimulationContext:
     def copy_context(self):
         """Copy data from node local storage to file system."""
         result_h5 = self.h5_prefix + ".h5"
+
+        logger.debug("Performing H5 concat...")
         concat_h5(self.workdir, result_h5)
-        self.scp_sender.wait_all()
+        logger.debug("H5 concat finished")
+
+        if self.scp_sender is not None:
+            self.scp_sender.wait_all()
+
         cleanup_h5(self.workdir, keep=result_h5)
         self._cp_sender.send(self.workdir, touch_done_file=True)
 
@@ -296,7 +303,9 @@ def run_simulation(
         )
 
         for _ in range(niter):
+            logger.info("START sim.step")
             sim.step(nsteps)
+            logger.info("END sim.step")
 
             # If new PDB is found, reconfigure simulation, otherwise
             # continue runing old simulation

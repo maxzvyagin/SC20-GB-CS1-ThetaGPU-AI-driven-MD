@@ -15,7 +15,12 @@ from deepdrivemd.driver.config import OutlierDetectionConfig
 from deepdrivemd.outlier.utils import predict_from_cvae, outliers_from_latent_loc
 from deepdrivemd.outlier.utils import outliers_largeset
 from deepdrivemd.outlier.utils import find_frame, write_pdb_frame
+from deepdrivemd.util import config_logging
 from MDAnalysis.analysis.rms import RMSD
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def get_config():
@@ -69,7 +74,7 @@ class OutlierDetectionContext:
     @property
     def h5_dcd_file_pairs(self):
         return list(self._h5_dcd_map.items())
-        
+
     @property
     def md_input_dirs(self):
         if self._md_input_dirs is None:
@@ -90,9 +95,10 @@ class OutlierDetectionContext:
             self._last_acquired_cvae_lock = self._cvae_weights_file
             return self._cvae_weights_file
 
-    def get_open_md_input_slot(self, pdb_file):
+    def get_open_md_input_slot(self):
         for input_dir in self.md_input_dirs:
-            if 
+            if not list(input_dir.glob("*.pdb")):
+                return input_dir
 
     def update_model(self):
         """Gets most recent model weights."""
@@ -105,6 +111,8 @@ class OutlierDetectionContext:
 
 def main():
     config = get_config()
+    log_fname = config.md_dir.joinpath("outlier_detection.log").as_posix()
+    config_logging(filename=log_fname, **config.logging.dict())
     ctx = OutlierDetectionContext(**config.dict())
 
     timeout_ns = config.timeout_ns
