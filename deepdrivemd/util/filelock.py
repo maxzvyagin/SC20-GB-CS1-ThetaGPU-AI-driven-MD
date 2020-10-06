@@ -1,6 +1,9 @@
 import os
 import random
 import time
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class FileLock:
@@ -27,12 +30,12 @@ class FileLock:
                 return True
             return time.time() - start < timeout
 
+        logger.debug(f"Attempting to acquire lock: {self.lock_path}")
         while not acquired and _time_left():
             try:
                 os.mkdir(self.lock_path)
             except OSError:
                 time.sleep(1.0 + random.uniform(0, 0.5))
-                print(".", end="", flush=True)
                 newline = True
                 if self.check_stale():
                     try:
@@ -42,7 +45,7 @@ class FileLock:
             else:
                 acquired = True
                 if newline:
-                    print("")
+                    logger.debug(f"Acquired lock: {self.lock_path}")
         if not acquired:
             raise TimeoutError(f"Failed to acquire {self.lock_path} for {timeout} sec")
 

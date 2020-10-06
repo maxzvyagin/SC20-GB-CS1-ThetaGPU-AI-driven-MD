@@ -48,7 +48,7 @@ def config_logging(filename, level, format, datefmt, buffer_num_records, flush_p
     file_handler = logging.FileHandler(filename=filename)
     mem_handler = PeriodicMemoryHandler(
         capacity=buffer_num_records,
-        flushLevel=level,
+        flushLevel=logging.ERROR,
         target=file_handler,
         flush_period=flush_period,
     )
@@ -59,6 +59,16 @@ def config_logging(filename, level, format, datefmt, buffer_num_records, flush_p
         datefmt=datefmt,
         handlers=[mem_handler],
     )
+
+    def log_uncaught_exceptions(exctype, value, tb):
+        _logger.error(
+            f"Uncaught Exception {exctype}: {value}", exc_info=(exctype, value, tb)
+        )
+        for handler in _logger.handlers:
+            handler.flush()
+
+
+sys.excepthook = log_uncaught_exceptions
 
 
 __all__ = ["FileLock", "LocalCopySender", "RemoteCopySender", "config_logging"]

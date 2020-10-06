@@ -5,6 +5,10 @@ import simtk.unit as u
 from deepdrivemd.sim.openmm_sim import run_simulation
 from deepdrivemd.util import config_logging
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def get_config() -> dict:
     parser = argparse.ArgumentParser()
@@ -39,4 +43,6 @@ if __name__ == "__main__":
     log_fname = os.path.join(cfg["result_dir"], cfg["omm_dir_prefix"] + ".log")
     config_logging(filename=log_fname, **cfg["logging"])
     simulation_kwargs = build_simulation_params(cfg)
+    kw_str = ", ".join(f"{k}={v}" for k, v in simulation_kwargs.items())
+    logger.debug(f"run_simulation({kw_str})")
     run_simulation(**simulation_kwargs)

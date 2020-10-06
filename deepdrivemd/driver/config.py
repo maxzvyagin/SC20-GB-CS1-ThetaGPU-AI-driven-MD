@@ -17,7 +17,7 @@ class LoggingConfig(BaseSettings):
     level: str = "DEBUG"
     format: str = "'%(asctime)s|%(process)d|%(thread)d|%(levelname)8s|%(name)s:%(lineno)s] %(message)s'"
     datefmt: str = "%d-%b-%Y %H:%M:%S"
-    buffer_num_records: int = 10
+    buffer_num_records: int = 1024
     flush_period: int = 30
 
 
@@ -25,6 +25,7 @@ class MDConfig(BaseSettings):
     """
     Auto-generates configuration file for run_openmm.py
     """
+
     reference_pdb_file: Path
     local_run_dir: Path
     sim_type: MDType
@@ -114,6 +115,7 @@ class CVAEModelConfig(BaseSettings):
 
 
 class ExtrinsicScore(str, Enum):
+    none = "none"
     rmsd_to_reference_state = "rmsd_to_reference_state"
 
 
@@ -123,7 +125,7 @@ class OutlierDetectionConfig(BaseSettings):
     pdb_file: Path
     reference_pdb_file: Path
     num_outliers: int = 500
-    extrinsic_outlier_score: ExtrinsicScore = ExtrinsicScore.rmsd_to_reference_state
+    extrinsic_outlier_score: ExtrinsicScore = ExtrinsicScore.none
     model_params: CVAEModelConfig
     sklearn_num_cpus: int = 16
     logging: LoggingConfig

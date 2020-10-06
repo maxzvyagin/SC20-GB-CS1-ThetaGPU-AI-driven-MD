@@ -216,6 +216,7 @@ class SimulationContext:
     def is_new_pdb(self):
         pdb_file = self._find_in_input_dir("*.pdb")
         if pdb_file is None:
+            logger.debug(f"No new PDB yet")
             return False
 
         logger.info(f"New PDB file detected; launching new sim: {self.pdb_file}")
@@ -302,6 +303,7 @@ def run_simulation(
     while not ctx.is_new_pdb():
         time.sleep(5)
 
+    logger.info(f"Received initial PDB: {ctx.pdb_file}")
     while not ctx.halt_signal():
 
         sim = configure_simulation(

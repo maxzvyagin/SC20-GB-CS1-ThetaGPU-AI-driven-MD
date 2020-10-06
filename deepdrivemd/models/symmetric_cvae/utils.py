@@ -2,11 +2,14 @@ import tensorflow as tf
 import h5py
 import numpy as np
 from scipy.sparse import coo_matrix
+import logging
 import os
 import glob
 import yaml
 import shutil
 import random
+
+logger = logging.getLogger(__name__)
 
 # _curdir = os.path.dirname(os.path.abspath(__file__))
 # DEFAULT_YAML_PATH = os.path.join(_curdir, "params.yaml")
@@ -74,7 +77,6 @@ def write_to_tfrecords(
     contact_maps = []
     for i, h5_file_path in enumerate(files):
         with h5py.File(h5_file_path, "r", libver="latest", swmr=False) as f:
-            print(f.keys())
             for j, raw_indices in enumerate(f["contact_map"]):
                 indices = raw_indices.reshape((2, -1)).astype("int16")
                 # Contact matrices are binary so we don't need to store the values
@@ -93,7 +95,7 @@ def write_to_tfrecords(
                     record_name = os.path.join(
                         train_dir_path, f"tfrecord_{i}_sample{record_counter}.tfrecords"
                     )
-                    print(record_name)
+                    logger.debug(f"Wrote TFRecord: {record_name}")
                     write_record(contact_maps, record_name)
                     contact_maps = []
     if len(contact_maps) > 0:
@@ -101,16 +103,13 @@ def write_to_tfrecords(
         record_name = os.path.join(
             train_dir_path, f"tfrecord_{i}_sample{record_counter}.tfrecords"
         )
-        print(record_name)
         write_record(contact_maps, record_name)
         contact_maps = []
-    print(f"total files: {record_counter}")
     files_created = record_counter - initial_counter
     # choose X% between initial_counter to record_counter to move to eval_dir_path
     randomlist = random.sample(
         range(initial_counter + 1, record_counter + 1), int(fraction * files_created)
     )
-    print(f"eval file numbers: {randomlist}")
     for n in randomlist:
         full_filename = glob.glob(f"{train_dir_path}/*_sample{n}.tfrecords")[0]
         file_name = full_filename[

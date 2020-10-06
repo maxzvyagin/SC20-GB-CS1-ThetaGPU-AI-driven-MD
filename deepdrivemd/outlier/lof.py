@@ -1,31 +1,25 @@
 from concurrent.futures import ThreadPoolExecutor
-import os
 from pathlib import Path
 import time
 import yaml
 import shutil
 import argparse
 import queue
-import random
 import numpy as np
-from glob import glob
 import itertools
 
 import tensorflow as tf
 import h5py
 
 import MDAnalysis as mda
-from MDAnalysis.analysis.rms import RMSD
 
 from deepdrivemd.util import FileLock, config_logging
 from deepdrivemd.driver.config import OutlierDetectionConfig, CVAEModelConfig
 
 from deepdrivemd.models.symmetric_cvae.utils import write_to_tfrecords
 from deepdrivemd.models.symmetric_cvae.data import parse_function_record_predict
-
 from deepdrivemd.models.symmetric_cvae.model import model_fn
 
-from deepdrivemd.models.symmetric_cvae.prepare_dataset import update_dataset
 
 from deepdrivemd.outlier.utils import outlier_search_lof
 from deepdrivemd.outlier.utils import find_frame
@@ -111,6 +105,7 @@ class OutlierDetectionContext:
             logger.info(f"Outlier seen before: {outlier}")
             return
         self._seen_outliers.add(outlier)
+        logger.debug(f"Enqueueing new (score, outlier) = {(score, outlier)}")
         self._pdb_outlier_queue.put_nowait((score, outlier))
 
     def _get_outlier(self):
@@ -127,6 +122,7 @@ class OutlierDetectionContext:
     def send(self):
         # Blocks until all PDBs are sent
         md_dirs = self.get_open_md_input_slots()
+        logger.info(f"Sending new outlier pdbs to {len(md_dirs)} dirs")
         with ThreadPoolExecutor() as ex:
             for _ in ex.map(self.dispatch_next_outlier, md_dirs):
                 pass
@@ -153,9 +149,9 @@ class OutlierDetectionContext:
             return
 
         dcd_filename, frame_index = outlier
-        logger.info(f"Creating outlier .pdb from {dcd_filename} frame {frame_index}")
+        logger.debug(f"Creating outlier .pdb from {dcd_filename} frame {frame_index}")
         outlier_pdb_file = self.generate_pdb_file(dcd_filename, frame_index)
-        logger.info("outlier .pdb write done")
+        logger.debug("outlier .pdb write done")
         target = input_dir.joinpath(outlier_pdb_file.name)
         logger.debug(f"Acquiring FileLock to write {target}")
         with FileLock(target):
@@ -163,7 +159,7 @@ class OutlierDetectionContext:
             start = time.perf_counter()
             shutil.move(outlier_pdb_file.as_posix(), target)
             elapsed = time.perf_counter() - start
-            logger.info(f"shutil.move wrote {target.name} in {elapsed:.2f} seconds")
+            logger.debug(f"shutil.move wrote {target.name} in {elapsed:.2f} seconds")
 
     def rescan_h5_dcd(self):
         while not self.h5_files:
@@ -180,7 +176,7 @@ class OutlierDetectionContext:
 
     def update_model(self):
         """Gets most recent model weights."""
-        while self.cvae_weights_file is not None:
+        while self.cvae_weights_file is None:
             self.cvae_weights_file = tf.train.latest_checkpoint(self.cvae_dir)
             if self.cvae_weights_file is not None:
                 break
@@ -271,6 +267,10 @@ def main():
     config = get_config()
     log_fname = config.md_dir.joinpath("outlier_detection.log").as_posix()
     config_logging(filename=log_fname, **config.logging.dict())
+
+    logger.info(f"Starting outlier detection main()")
+    logger.info(f"{config.dict()}")
+
     ctx = OutlierDetectionContext(**config.dict())
 
     start_time = time.time()
@@ -283,12 +283,15 @@ def main():
         # we're assuming the latest cvae weights file has the best model
         ctx.update_model()
 
+        assert ctx.cvae_weights_file is not None
+        logger.info(f"start model prediction with weights: {ctx.cvae_weights_file}")
         embeddings = predict_from_cvae(
             ctx.tfrecords_dir,
             ctx.cvae_weights_file,
             config.model_params,
             data_generator,
         )
+        logger.info("end model prediction")
 
         logger.info(
             f"Starting outlier searching with n_outliers="
@@ -323,6 +326,7 @@ def main():
 
         # Send outliers to MD simulation jobs
         ctx.send()
+        logger.info("Finished sending new outliers")
 
         # Compute elapsed time
         mins, secs = divmod(time.time() - start_time, 60)
@@ -331,6 +335,7 @@ def main():
         # If elapsed time is greater than specified walltime then stop
         # all MD simulations and end outlier detection process.
         if mins + secs / 60 >= config.walltime_min:
+            logger.info(f"Walltime expired: halting simulations")
             ctx.halt_simulations()
             return
 
