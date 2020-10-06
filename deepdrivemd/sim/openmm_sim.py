@@ -117,12 +117,13 @@ def configure_simulation(
     sim.reporters.append(app.DCDReporter(ctx.traj_file, report_freq))
 
     # Configure contact map reporter
+    senders = [ctx.scp_sender] if ctx.scp_sender is not None else []
     sim.reporters.append(
         SparseContactMapReporter(
             ctx.h5_prefix,
             report_freq,
             ctx.reference_pdb_file,
-            senders=[ctx.scp_sender],
+            senders=senders,
             batch_size=frames_per_h5,
         )
     )
