@@ -1,183 +1,103 @@
-cs1_training:
-  activation: relu
-  allowed_optimizers:
-    - sgd
-    - sgdm
-    - adam
-    - rmsprop
-  batch_size: 1
-  beta1: 0.2
-  beta2: 0.9
-  data_dir: null
-  data_random_seed: null
-  dec_conv_filters:
-    - 100
-    - 100
-    - 100
-    - 100
-  dec_conv_kernels:
-    - 5
-    - 5
-    - 5
-    - 5
-  dec_conv_strides:
-    - 1
-    - 2
-    - 1
-    - 1
-  decay: 0.9
-  dense_units: 64
-  enc_conv_filters:
-    - 100
-    - 100
-    - 100
-    - 100
-  enc_conv_kernels:
-    - 5
-    - 5
-    - 5
-    - 5
-  enc_conv_strides:
-    - 1
-    - 1
-    - 2
-    - 1
-  epsilon: 1.0e-08
-  eval_data_dir: null
-  eval_steps: 2
-  fraction: 0.2
-  full_precision_loss: false
-  global_path: null
-  h5_shape:
-    - 1
-    - 36
-    - 36
-  hostname: medulla1
-  input_shape:
-    - 1
-    - 32
-    - 32
-  itemsize: 1
-  kl_loss_reduction_type: sum
-  last_n_files: 1
-  last_n_files_eval: 1
-  latent_ndim: 10
-  learning_rate: 2.0e-05
-  loss_scale: 1.0
-  medulla_experiment_path: /data/shared/experiment/on/medulla1
-  metrics: true
-  mixed_precision: true
-  mode: train
-  model_dir: null
-  model_random_seed: null
-  momentum: 0.9
-  num_frames_per_training: 16000
-  optimizer_name: rmsprop
-  reconstruction_loss_reduction_type: sum
-  run_script: /data/shared/vishal/ANL-shared/cvae_gb/run_mixed.sh
-  runconfig_params:
-    keep_checkpoint_max: 3
-    log_step_count_steps: 10
-    save_checkpoints_steps: 10
-    save_summary_steps: 10
-  samples_per_file: 1
-  sim_data_dir: null
-  tfrecord_shape:
-    - 1
-    - 36
-    - 36
-  theta_gpu_path: null
-  train_steps: 10
 experiment_directory: /path/to/experiment
-gpu_training: null
-logging:
-  buffer_num_records: 1024
-  datefmt: "%d-%b-%Y %H:%M:%S"
-  flush_period: 30
-  format: "%(asctime)s|%(process)d|%(thread)d|%(levelname)8s|%(name)s:%(lineno)s] %(message)s"
-  level: DEBUG
+walltime_min: 120
+
 md_runner:
-  frames_per_h5: 1024
-  initial_configs_dir: /path/to/initial_pdbs_and_tops
-  local_run_dir: /raid/scratch
-  md_environ_setup:
-    - eval "$(/lus/theta-fs0/projects/RL-fold/msalim/miniconda3/bin/conda shell.bash
-      hook)"
-    - conda activate /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm
-  md_run_command: python -m deepdrivemd.sim.run_openmm
-  num_jobs: 10
-  reeval_time_ns: 10
-  reference_pdb_file: /path/to/reference.pdb
-  report_interval_ps: 50
-  sim_type: explicit
-  simulation_length_ns: 10
+    frames_per_h5: 1024
+    initial_configs_dir: /path/to/initial_pdbs_and_tops
+    local_run_dir: /raid/scratch
+    md_environ_setup:
+        - eval "$(/lus/theta-fs0/projects/RL-fold/msalim/miniconda3/bin/conda shell.bash
+          hook)"
+        - conda activate /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm
+    md_run_command: python run_openmm.py
+    num_jobs: 10
+    reeval_time_ns: 2.0
+    reference_pdb_file: /path/to/reference.pdb
+    report_interval_ps: 50.0
+    sim_type: explicit
+    simulation_length_ns: 10.0
+
 outlier_detection:
-  cvae_dir: null
-  extrinsic_outlier_score: none
-  gpus_per_node: 8
-  local_scratch_dir: /raid/scratch
-  logging:
-    buffer_num_records: 1024
-    datefmt: "%d-%b-%Y %H:%M:%S"
-    flush_period: 30
-    format: "%(asctime)s|%(process)d|%(thread)d|%(levelname)8s|%(name)s:%(lineno)s] %(message)s"
-    level: DEBUG
-  max_num_old_h5_files: 1000
-  md_dir: null
-  model_params:
+    environ_setup: []
+    extrinsic_outlier_score: none
+    gpus_per_node: 8
+    local_scratch_dir: /raid/scratch
+    max_num_old_h5_files: 1000
+    num_nodes: 1
+    num_outliers: 500
+    ranks_per_node: 1
+    run_command: python -m deepdrivemd.outlier.lof
+    sklearn_num_cpus: 16
+
+cs1_training:
+    eval_steps: 2
+    hostname: medulla1
+    medulla_experiment_path: /data/shared/experiment/on/medulla1
+    metrics: true
+    mode: train
+    num_frames_per_training: 16000
+    run_script: /data/shared/vishal/ANL-shared/cvae_gb/run_mixed.sh
+    runconfig_params:
+        keep_checkpoint_max: 3
+        log_step_count_steps: 10
+        save_checkpoints_steps: 10
+        save_summary_steps: 10
+    train_steps: 10
+
+cvae_model:
     activation: relu
     allowed_optimizers:
-      - sgd
-      - sgdm
-      - adam
-      - rmsprop
+        - sgd
+        - sgdm
+        - adam
+        - rmsprop
     batch_size: 1
     beta1: 0.2
     beta2: 0.9
     data_random_seed: null
     dec_conv_filters:
-      - 100
-      - 100
-      - 100
-      - 100
+        - 100
+        - 100
+        - 100
+        - 100
     dec_conv_kernels:
-      - 5
-      - 5
-      - 5
-      - 5
+        - 5
+        - 5
+        - 5
+        - 5
     dec_conv_strides:
-      - 1
-      - 2
-      - 1
-      - 1
+        - 1
+        - 2
+        - 1
+        - 1
     decay: 0.9
     dense_units: 64
     enc_conv_filters:
-      - 100
-      - 100
-      - 100
-      - 100
+        - 100
+        - 100
+        - 100
+        - 100
     enc_conv_kernels:
-      - 5
-      - 5
-      - 5
-      - 5
+        - 5
+        - 5
+        - 5
+        - 5
     enc_conv_strides:
-      - 1
-      - 1
-      - 2
-      - 1
+        - 1
+        - 1
+        - 2
+        - 1
     epsilon: 1.0e-08
     fraction: 0.2
     full_precision_loss: false
     h5_shape:
-      - 1
-      - 36
-      - 36
+        - 1
+        - 36
+        - 36
     input_shape:
-      - 1
-      - 32
-      - 32
+        - 1
+        - 32
+        - 32
     itemsize: 1
     kl_loss_reduction_type: sum
     last_n_files: 1
@@ -192,13 +112,17 @@ outlier_detection:
     reconstruction_loss_reduction_type: sum
     samples_per_file: 1
     tfrecord_shape:
-      - 1
-      - 36
-      - 36
-  num_nodes: 1
-  num_outliers: 500
-  ranks_per_node: 1
-  run_command: python -m deepdrivemd.outlier.lof
-  sklearn_num_cpus: 16
-  walltime_min: 120
-walltime_min: 120
+        - 1
+        - 36
+        - 36
+
+gpu_training: null
+
+logging:
+    buffer_num_records: 1024
+    datefmt: "%d-%b-%Y %H:%M:%S"
+    flush_period: 30
+    format:
+        "%(asctime)s|%(process)d|%(thread)d|%(levelname)8s|%(name)s:%(lineno)s]
+        %(message)s"
+    level: DEBUG

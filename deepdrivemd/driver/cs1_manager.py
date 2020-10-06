@@ -1,4 +1,4 @@
-from .config import CS1TrainingConfig
+from .config import CS1TrainingRunConfig, CS1TrainingUserConfig, CVAEModelConfig
 from fabric import Connection
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -17,9 +17,7 @@ def get_connection(host: str):
     return Connection(host)
 
 
-def write_configuration(
-    conn: Connection, training_config: CS1TrainingConfig, theta_experiment_dir: Path
-):
+def write_configuration(conn: Connection, training_config: CS1TrainingRunConfig):
     """
     Sets up the directories and params.yaml file for the current experiment on Medulla
     Args:
@@ -32,12 +30,6 @@ def write_configuration(
     if not top_dir.is_absolute():
         raise ValueError("medulla_experiment_path must be absolute")
 
-    training_config.sim_data_dir = top_dir.joinpath("h5_data")
-    training_config.data_dir = top_dir.joinpath("records_loop")
-    training_config.eval_data_dir = top_dir.joinpath("eval_records_loop")
-    training_config.global_path = top_dir.joinpath("files_seen.txt")
-    training_config.model_dir = top_dir.joinpath("model_dir")
-
     logger.info(f"Creating {top_dir} on {conn.host}")
     conn.run(f"mkdir -p {top_dir}")
     conn.run(f"mkdir -p {training_config.sim_data_dir}")
@@ -46,9 +38,6 @@ def write_configuration(
     conn.run(f"mkdir -p {training_config.model_dir}")
     conn.run(f"touch  {training_config.global_path}")
 
-    training_config.theta_gpu_path = theta_experiment_dir.joinpath("cvae_weights")
-    training_config.theta_gpu_path.mkdir(exist_ok=True)
-
     with NamedTemporaryFile(mode="w", delete=False) as fp:
         yaml.dump(json.loads(training_config.json()), fp)
         fp.flush()
@@ -56,7 +45,7 @@ def write_configuration(
 
 
 def _launch_cs1_trainer(
-    conn: Connection, training_config: CS1TrainingConfig, num_h5_per_run: int
+    conn: Connection, training_config: CS1TrainingRunConfig, num_h5_per_run: int
 ):
     top_dir = training_config.medulla_experiment_path
     stop_path = top_dir.joinpath(STOP_FILENAME)
@@ -71,7 +60,7 @@ def _launch_cs1_trainer(
 
 
 def launch_cs1_trainer(
-    conn: Connection, training_config: CS1TrainingConfig, num_h5_per_run: int
+    conn: Connection, training_config: CS1TrainingRunConfig, num_h5_per_run: int
 ) -> threading.Thread:
     """
     Returns a thread for the remotely-executed CS1 Training
@@ -86,7 +75,9 @@ def launch_cs1_trainer(
 
 
 def stop_cs1_trainer(
-    conn: Connection, training_config: CS1TrainingConfig, train_thread: threading.Thread
+    conn: Connection,
+    training_config: CS1TrainingRunConfig,
+    train_thread: threading.Thread,
 ):
     """
     Puts a STOP file in the CS1 training directory to signal end of training
@@ -98,3 +89,41 @@ def stop_cs1_trainer(
     logger.info("Joining cs1 SSH-managing thread")
     train_thread.join()
     logger.info("Join done")
+
+
+class CS1Training:
+    def __init__(
+        self,
+        user_config: CS1TrainingUserConfig,
+        model_config: CVAEModelConfig,
+        cvae_weights_dir: Path,
+        frames_per_h5: int,
+    ):
+        top_dir = user_config.medulla_experiment_path
+
+        self.config = CS1TrainingRunConfig(
+            **user_config.dict(),
+            **model_config.dict(),
+            sim_data_dir=top_dir.joinpath("h5_data"),
+            data_dir=top_dir.joinpath("records_loop"),
+            eval_data_dir=top_dir.joinpath("eval_records_loop"),
+            global_path=top_dir.joinpath("files_seen.txt"),
+            model_dir=top_dir.joinpath("model_dir"),
+            theta_gpu_path=cvae_weights_dir,
+        )
+
+        conn = get_connection(user_config.hostname)
+        write_configuration(conn, self.config)
+
+        num_h5s, rem = divmod(self.config.num_frames_per_training, frames_per_h5)
+        if rem != 0:
+            raise ValueError(
+                f"frames_per_h5 {frames_per_h5} must evenly divide "
+                f"num_frames_per_training {self.config.num_frames_per_training}"
+            )
+        self.train_thread = launch_cs1_trainer(conn, self.config, num_h5s)
+
+    def stop(self):
+        conn = get_connection(self.config.hostname)
+        assert self.config is not None
+        stop_cs1_trainer(conn, self.config, self.train_thread)

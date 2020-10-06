@@ -1,14 +1,10 @@
 import itertools
 import random
-import os
 import sys
 import shutil
 import time
-from tempfile import NamedTemporaryFile
 from typing import Set, List, Optional, Tuple
 from pathlib import Path
-
-from fabric import Connection
 
 from .mpi_launcher import ComputeNodeManager, MPIRun, ComputeNode
 from .config import (
@@ -16,15 +12,11 @@ from .config import (
     MDConfig,
     MDRunnerConfig,
     ExperimentConfig,
-    OutlierDetectionConfig,
+    OutlierDetectionUserConfig,
+    OutlierDetectionRunConfig,
     LoggingConfig,
 )
-from .cs1_manager import (
-    get_connection,
-    write_configuration,
-    launch_cs1_trainer,
-    stop_cs1_trainer,
-)
+from .cs1_manager import CS1Training
 
 from deepdrivemd import config_logging
 import logging
@@ -45,8 +37,6 @@ def launch_md(
     """
     Start one instance of OpenMM and return the MPIRun handle
     """
-    hostname = nodes[0].id
-
     input_dir = md_dir.joinpath("input_" + omm_dir_prefix)  # input_run058
     input_dir.mkdir()
 
@@ -95,14 +85,12 @@ def launch_md(
 
 
 def dispatch_md_runs(
-    manager: ComputeNodeManager, config: ExperimentConfig
+    md_dir: Path, manager: ComputeNodeManager, config: ExperimentConfig
 ) -> Tuple[List[MPIRun], Path]:
     """
     Launch the full set of MD Runs for this experiment
     """
     md_runs = []
-    md_dir = config.experiment_directory.joinpath("md_runs")
-    md_dir.mkdir()
     MPIRun.set_preamble_commands(*config.md_runner.md_environ_setup)
 
     pdb_files = list(config.md_runner.initial_configs_dir.glob("*/*.pdb"))
@@ -135,43 +123,33 @@ def dispatch_md_runs(
     return md_runs, md_dir
 
 
-class CS1Training:
-    def __init__(self, config: ExperimentConfig):
-        self.config = config.cs1_training
-        assert self.config is not None
-        conn = get_connection(self.config.hostname)
-        write_configuration(conn, self.config, config.experiment_directory)
-
-        num_h5s, rem = divmod(
-            self.config.num_frames_per_training, config.md_runner.frames_per_h5
-        )
-        if rem != 0:
-            raise ValueError(
-                f"frames_per_h5 {config.md_runner.frames_per_h5} must evenly divide "
-                f"num_frames_per_training {self.config.num_frames_per_training}"
-            )
-        self.train_thread = launch_cs1_trainer(conn, self.config, num_h5s)
-
-    def stop(self):
-        conn = get_connection(self.config.hostname)
-        assert self.config is not None
-        stop_cs1_trainer(conn, self.config, self.train_thread)
-
-
-def dispatch_od_run(manager, config: ExperimentConfig, md_dir: Path):
+def dispatch_od_run(
+    manager,
+    user_config: OutlierDetectionUserConfig,
+    md_dir: Path,
+    logging_cfg,
+    model_params,
+    cvae_dir,
+    walltime_min,
+    experiment_dir,
+):
     nodes, gpu_ids = manager.request(
-        num_nodes=config.outlier_detection.num_nodes,
-        gpus_per_node=config.outlier_detection.gpus_per_node,
+        num_nodes=user_config.num_nodes,
+        gpus_per_node=user_config.gpus_per_node,
     )
-    outlier_cfg = config.outlier_detection
-    outlier_cfg.md_dir = md_dir
-    if config.cs1_training:
-        outlier_cfg.cvae_dir = config.cs1_training.theta_gpu_path
-    outlier_cfg.walltime_min = config.walltime_min
+    outlier_cfg = OutlierDetectionRunConfig(
+        logging=logging_cfg,
+        model_params=model_params,
+        md_dir=md_dir,
+        cvae_dir=cvae_dir,
+        walltime_min=walltime_min,
+        **user_config.dict(),
+    )
 
-    cfg_path = config.experiment_directory.joinpath("lof.yaml")
+    cfg_path = experiment_dir.joinpath("lof.yaml")
     with open(cfg_path, "w") as fp:
         outlier_cfg.dump_yaml(fp)
+    MPIRun.set_preamble_commands(*user_config.environ_setup)
     # od_run = MPIRun(
     #    config.outlier_detection.run_command + f" -c {cfg_path}",
     #    node_list=nodes,
@@ -192,15 +170,27 @@ def main(config_filename: str):
     start = time.time()
     config = read_yaml_config(config_filename)
 
-    config.experiment_directory.mkdir(
-        exist_ok=False  # No duplicate experiment directories!
-    )
+    config.experiment_directory.mkdir(exist_ok=False)
+    md_dir = config.experiment_directory.joinpath("md_runs")
+    cvae_weights_dir = config.experiment_directory.joinpath("cvae_weights")
+    cvae_weights_dir.mkdir()
+    md_dir.mkdir()
+
+    config.outlier_detection.md_dir = md_dir
+    config.outlier_detection.cvae_dir = cvae_weights_dir
+    if config.cs1_training is not None:
+        config.cs1_training.theta_gpu_path = cvae_weights_dir
 
     log_fname = config.experiment_directory.joinpath("experiment_main.log").as_posix()
     config_logging(filename=log_fname, **config.logging.dict())
 
     if config.cs1_training is not None:
-        cs1_training = CS1Training(config)
+        cs1_training = CS1Training(
+            config.cs1_training,
+            config.cvae_model,
+            cvae_weights_dir,
+            config.md_runner.frames_per_h5,
+        )
         gpu_training = None
     elif config.gpu_training is not None:
         cs1_training = None
@@ -210,8 +200,17 @@ def main(config_filename: str):
         gpu_training = None
 
     manager = ComputeNodeManager()
-    md_runs, md_dir = dispatch_md_runs(manager, config)
-    od_run = dispatch_od_run(manager, config, md_dir)
+    md_runs, md_dir = dispatch_md_runs(md_dir, manager, config)
+    od_run = dispatch_od_run(
+        manager=manager,
+        user_config=config.outlier_detection,
+        md_dir=md_dir,
+        logging_cfg=config.logging,
+        model_params=config.cvae_model,
+        cvae_dir=cvae_weights_dir,
+        walltime_min=config.walltime_min,
+        experiment_dir=config.experiment_directory,
+    )
 
     elapsed_sec = time.time() - start
     remaining_sec = int(max(0, config.walltime_min * 60 - elapsed_sec))
@@ -225,14 +224,6 @@ def main(config_filename: str):
 
     if cs1_training is not None:
         cs1_training.stop()
-
-
-def test_log():
-    from deepdrivemd.driver.config import LoggingConfig
-
-    log_conf = LoggingConfig().dict()
-    config_logging(filename="tester123.log", **log_conf)
-    logger.info("This is only a test")
 
 
 if __name__ == "__main__":

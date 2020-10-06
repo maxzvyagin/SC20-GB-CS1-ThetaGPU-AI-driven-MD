@@ -1,11 +1,16 @@
 # Schema of the YAML experiment file
-
 import json
 import yaml
 from enum import Enum
-from pydantic import BaseSettings, validator
+from pydantic import BaseSettings as _BaseSettings
+from pydantic import validator
 from pathlib import Path
 from typing import Optional, List, Dict
+
+
+class BaseSettings(_BaseSettings):
+    def dump_yaml(self, file):
+        yaml.dump(json.loads(self.json()), file, indent=4)
 
 
 class MDType(str, Enum):
@@ -43,9 +48,6 @@ class MDConfig(BaseSettings):
     initial_configs_dir: Path
     logging: LoggingConfig
 
-    def dump_yaml(self, file):
-        yaml.dump(json.loads(self.json()), file)
-
 
 class MDRunnerConfig(BaseSettings):
     """
@@ -56,17 +58,16 @@ class MDRunnerConfig(BaseSettings):
     initial_configs_dir: Path
     reference_pdb_file: Path
     sim_type: MDType
+    frames_per_h5: int = 1024
     simulation_length_ns: float = 10
     report_interval_ps: float = 50
-    # Length of each simulation in nanoseconds if recursive mode is active
-    reeval_time_ns: float = 10
+    reeval_time_ns: float = 2
     local_run_dir: Path = Path("/raid/scratch")
     md_run_command: str = "python run_openmm.py"
     md_environ_setup: List[str] = [
         'eval "$(/lus/theta-fs0/projects/RL-fold/msalim/miniconda3/bin/conda shell.bash hook)"',
         "conda activate /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm",
     ]
-    frames_per_h5: int
 
     @validator("reeval_time_ns")
     def reeval_time_less_than_sim_time(cls, v, values):
@@ -124,41 +125,40 @@ class ExtrinsicScore(str, Enum):
     rmsd_to_reference_state = "rmsd_to_reference_state"
 
 
-class OutlierDetectionConfig(BaseSettings):
-    md_dir: Optional[Path] = None  # MD simulation direction
-    cvae_dir: Path  # CVAE model directory
-    walltime_min: int
+class OutlierDetectionUserConfig(BaseSettings):
     num_outliers: int = 500
     extrinsic_outlier_score: ExtrinsicScore = ExtrinsicScore.none
-    model_params: CVAEModelConfig = CVAEModelConfig()
     sklearn_num_cpus: int = 16
-    logging: LoggingConfig = LoggingConfig()
     local_scratch_dir: Path = Path("/raid/scratch")
     max_num_old_h5_files: int = 1000
     # Run parameters
     run_command: str = "python -m deepdrivemd.outlier.lof"
+    environ_setup: List[str] = []
     num_nodes: int = 1
     ranks_per_node: int = 1
     gpus_per_node: int = 8
 
-    def dump_yaml(self, file):
-        yaml.dump(json.loads(self.json()), file)
+
+class OutlierDetectionRunConfig(OutlierDetectionUserConfig):
+    logging: LoggingConfig
+    model_params: CVAEModelConfig
+    md_dir: Path
+    cvae_dir: Path
+    walltime_min: int
 
 
-class GPUTrainingConfig(CVAEModelConfig):
+class GPUTrainingUserConfig(BaseSettings):
     pass
 
 
-class CS1TrainingConfig(CVAEModelConfig):
-    hostname: str = "medulla1"
+class GPUTrainingRunConfig(CVAEModelConfig, GPUTrainingUserConfig):
+    pass
+
+
+class CS1TrainingUserConfig(BaseSettings):
     medulla_experiment_path: Path
+    hostname: str = "medulla1"
     run_script: Path = Path("/data/shared/vishal/ANL-shared/cvae_gb/run_mixed.sh")
-    sim_data_dir: Optional[Path] = None
-    data_dir: Optional[Path] = None
-    eval_data_dir: Optional[Path] = None
-    global_path: Optional[Path] = None  # files_seen36.txt
-    theta_gpu_path: Optional[Path] = None
-    model_dir: Optional[Path] = None
     num_frames_per_training: int = 16_000
 
     # Logging params are not supported on CS-1 and are disabled in run.py.
@@ -176,22 +176,28 @@ class CS1TrainingConfig(CVAEModelConfig):
     }
 
 
+class CS1TrainingRunConfig(CS1TrainingUserConfig, CVAEModelConfig):
+    sim_data_dir: Path
+    data_dir: Path
+    eval_data_dir: Path
+    global_path: Path # files_seen36.txt
+    theta_gpu_path: Path
+    model_dir: Path
+
+
 class ExperimentConfig(BaseSettings):
     """
     Master configuration
     """
 
     experiment_directory: Path
-    md_runner: MDRunnerConfig
-    outlier_detection: OutlierDetectionConfig
-    gpu_training: Optional[GPUTrainingConfig]
-    cs1_training: Optional[CS1TrainingConfig]
     walltime_min: int
-
+    md_runner: MDRunnerConfig
+    outlier_detection: OutlierDetectionUserConfig
     logging: LoggingConfig
-
-    def dump_yaml(self, file):
-        yaml.dump(json.loads(self.json()), file)
+    cvae_model: CVAEModelConfig
+    gpu_training: Optional[GPUTrainingUserConfig] = None
+    cs1_training: Optional[CS1TrainingUserConfig] = None
 
 
 def read_yaml_config(fname: str) -> ExperimentConfig:
@@ -208,14 +214,11 @@ def generate_sample_config():
         sim_type="explicit",
         frames_per_h5=1024,
     )
+    model = CVAEModelConfig()
     logging = LoggingConfig()
-    outlier_detection = OutlierDetectionConfig(
-        walltime_min=120,
-        logging=logging,
-        cvae_dir="/path/to/weights",
-    )
-    cs1_training = CS1TrainingConfig(
-        medulla_experiment_path="/data/shared/experiment/on/medulla1",
+    outlier_detection = OutlierDetectionUserConfig()
+    cs1_training = CS1TrainingUserConfig(
+        medulla_experiment_path="/data/shared/experiment/on/medulla1"
     )
 
     return ExperimentConfig(
@@ -223,8 +226,9 @@ def generate_sample_config():
         walltime_min=120,
         md_runner=md_runner,
         outlier_detection=outlier_detection,
-        cs1_training=cs1_training,
         logging=logging,
+        cs1_training=cs1_training,
+        cvae_model=model,
     )
 
 
