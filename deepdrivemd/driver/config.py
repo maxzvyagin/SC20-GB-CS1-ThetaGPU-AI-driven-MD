@@ -3,7 +3,7 @@
 import json
 import yaml
 from enum import Enum
-from pydantic import BaseSettings
+from pydantic import BaseSettings, validator
 from pathlib import Path
 from typing import Optional, List, Dict
 
@@ -29,11 +29,11 @@ class MDConfig(BaseSettings):
     reference_pdb_file: Path
     local_run_dir: Path
     sim_type: MDType
-    simulation_length_ns: int = 10
-    report_interval_ps: int = 50
+    simulation_length_ns: float = 10
+    report_interval_ps: float = 50
     dt_ps: float = 0.002
     # Length of each simulation in nanoseconds if recursive mode is active
-    reeval_time_ns: int = 10
+    reeval_time_ns: float = 10
     frames_per_h5: int
     result_dir: Path
     h5_scp_path: Optional[str]
@@ -56,10 +56,10 @@ class MDRunnerConfig(BaseSettings):
     initial_configs_dir: Path
     reference_pdb_file: Path
     sim_type: MDType
-    simulation_length_ns: int = 10
-    report_interval_ps: int = 50
+    simulation_length_ns: float = 10
+    report_interval_ps: float = 50
     # Length of each simulation in nanoseconds if recursive mode is active
-    reeval_time_ns: int = 10
+    reeval_time_ns: float = 10
     local_run_dir: Path = Path("/raid/scratch")
     md_run_command: str = "python run_openmm.py"
     md_environ_setup: List[str] = [
@@ -67,6 +67,12 @@ class MDRunnerConfig(BaseSettings):
         "conda activate /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm",
     ]
     frames_per_h5: int
+
+    @validator("reeval_time_ns")
+    def reeval_time_less_than_sim_time(cls, v, values):
+        if values["simulation_length_ns"] <= v:
+            raise ValueError("reeval_time_ns must be less than simulation_length_ns")
+        return v
 
 
 class CVAEModelConfig(BaseSettings):

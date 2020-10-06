@@ -294,7 +294,7 @@ def run_simulation(
     logger.debug("simulation context created")
 
     # Number of steps to run each simulation
-    nsteps = int(sim_time / dt_ps)
+    nsteps = int(reeval_time / dt_ps)
     # Number of times to run each simulation before
     # restarting with different initial conditions
     niter = int(sim_time / reeval_time)
