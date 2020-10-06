@@ -55,7 +55,6 @@ class MDRunnerConfig(BaseSettings):
     num_jobs: int
     initial_configs_dir: Path
     reference_pdb_file: Path
-    top_file: Optional[Path]
     sim_type: MDType
     simulation_length_ns: int = 10
     report_interval_ps: int = 50
@@ -120,20 +119,18 @@ class ExtrinsicScore(str, Enum):
 
 
 class OutlierDetectionConfig(BaseSettings):
-    md_dir: Path  # MD simulation direction
-    cvae_dir: Path  # CVAE model directory
-    pdb_file: Path
-    reference_pdb_file: Path
+    md_dir: Optional[Path] = None  # MD simulation direction
+    cvae_dir: Optional[Path] = None  # CVAE model directory
+    walltime_min: int
     num_outliers: int = 500
     extrinsic_outlier_score: ExtrinsicScore = ExtrinsicScore.none
-    model_params: CVAEModelConfig
+    model_params: CVAEModelConfig = CVAEModelConfig()
     sklearn_num_cpus: int = 16
-    logging: LoggingConfig
+    logging: LoggingConfig = LoggingConfig()
     local_scratch_dir: Path = Path("/raid/scratch")
     max_num_old_h5_files: int = 1000
     # Run parameters
     run_command: str = "python -m deepdrivemd.outlier.lof"
-    walltime_min: int
     num_nodes: int = 1
     ranks_per_node: int = 1
     gpus_per_node: int = 8
@@ -150,12 +147,12 @@ class CS1TrainingConfig(CVAEModelConfig):
     hostname: str = "medulla1"
     medulla_experiment_path: Path
     run_script: Path = Path("/data/shared/vishal/ANL-shared/cvae_gb/run_mixed.sh")
-    sim_data_dir: Optional[Path]
-    data_dir: Optional[Path]
-    eval_data_dir: Optional[Path]
-    global_path: Optional[Path]  # files_seen36.txt
-    theta_gpu_path: Optional[Path]
-    model_dir: Optional[Path]
+    sim_data_dir: Optional[Path] = None
+    data_dir: Optional[Path] = None
+    eval_data_dir: Optional[Path] = None
+    global_path: Optional[Path] = None  # files_seen36.txt
+    theta_gpu_path: Optional[Path] = None
+    model_dir: Optional[Path] = None
     num_frames_per_training: int = 16_000
 
     # Logging params are not supported on CS-1 and are disabled in run.py.
@@ -187,8 +184,44 @@ class ExperimentConfig(BaseSettings):
 
     logging: LoggingConfig
 
+    def dump_yaml(self, file):
+        yaml.dump(json.loads(self.json()), file)
+
 
 def read_yaml_config(fname: str) -> ExperimentConfig:
     with open(fname) as fp:
         data = yaml.safe_load(fp)
     return ExperimentConfig(**data)
+
+
+def generate_sample_config():
+    md_runner = MDRunnerConfig(
+        num_jobs=10,
+        initial_configs_dir="/path/to/initial_pdbs_and_tops",
+        reference_pdb_file="/path/to/reference.pdb",
+        sim_type="explicit",
+        frames_per_h5=1024,
+    )
+    logging = LoggingConfig()
+    outlier_detection = OutlierDetectionConfig(
+        walltime_min=120,
+        logging=logging,
+    )
+    cs1_training = CS1TrainingConfig(
+        medulla_experiment_path="/data/shared/experiment/on/medulla1",
+    )
+
+    return ExperimentConfig(
+        experiment_directory="/path/to/experiment",
+        walltime_min=120,
+        md_runner=md_runner,
+        outlier_detection=outlier_detection,
+        cs1_training=cs1_training,
+        logging=logging,
+    )
+
+
+if __name__ == "__main__":
+    with open("deepdrivemd_template.yaml", "w") as fp:
+        config = generate_sample_config()
+        config.dump_yaml(fp)

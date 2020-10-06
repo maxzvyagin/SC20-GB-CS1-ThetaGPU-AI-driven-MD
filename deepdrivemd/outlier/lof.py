@@ -41,8 +41,6 @@ def get_config():
 class OutlierDetectionContext:
     def __init__(
         self,
-        pdb_file: Path,
-        reference_pdb_file: Path,
         local_scratch_dir: Path,
         md_dir: Path,
         cvae_dir: Path,
@@ -50,8 +48,6 @@ class OutlierDetectionContext:
         model_params: CVAEModelConfig,
         **kwargs,
     ):
-        self.pdb_file = Path(pdb_file).resolve()
-        self.reference_pdb_file = Path(reference_pdb_file).resolve()
         self.md_dir = Path(md_dir).resolve()
         self.cvae_dir = Path(cvae_dir).resolve()
 

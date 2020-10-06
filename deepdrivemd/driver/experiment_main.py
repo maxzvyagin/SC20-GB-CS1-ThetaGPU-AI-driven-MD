@@ -4,7 +4,7 @@ import sys
 import shutil
 import time
 from tempfile import NamedTemporaryFile
-from typing import Set, List, Optional
+from typing import Set, List, Optional, Tuple
 from pathlib import Path
 
 from fabric import Connection
@@ -96,7 +96,7 @@ def launch_md(
 
 def dispatch_md_runs(
     manager: ComputeNodeManager, config: ExperimentConfig
-) -> List[MPIRun]:
+) -> Tuple[List[MPIRun], Path]:
     """
     Launch the full set of MD Runs for this experiment
     """
@@ -132,7 +132,7 @@ def dispatch_md_runs(
             logging_config=config.logging,
         )
         md_runs.append(run)
-    return md_runs
+    return md_runs, md_dir
 
 
 class CS1Training:
@@ -158,12 +158,16 @@ class CS1Training:
         stop_cs1_trainer(conn, self.config, self.train_thread)
 
 
-def dispatch_od_run(manager, config: ExperimentConfig):
+def dispatch_od_run(manager, config: ExperimentConfig, md_dir: Path):
     nodes, gpu_ids = manager.request(
         num_nodes=config.outlier_detection.num_nodes,
         gpus_per_node=config.outlier_detection.gpus_per_node,
     )
-    cfg = config.outlier_detection
+    outlier_cfg = config.outlier_detection
+    outlier_cfg.md_dir = md_dir
+    outlier_cfg.cvae_dir = config.cs1_training.theta_gpu_path
+    outlier_cfg.walltime_min = config.walltime_min
+
     cfg_path = config.experiment_directory.joinpath("lof.yaml")
     with open(cfg_path, "w") as fp:
         cfg.dump_yaml(fp)
@@ -204,8 +208,8 @@ def main(config_filename: str):
         gpu_training = None
 
     manager = ComputeNodeManager()
-    md_runs = dispatch_md_runs(manager, config)
-    od_run = dispatch_od_run(manager, config)
+    md_runs, md_dir = dispatch_md_runs(manager, config)
+    od_run = dispatch_od_run(manager, config, md_dir)
 
     elapsed_sec = time.time() - start
     remaining_sec = int(max(0, config.walltime_min * 60 - elapsed_sec))
