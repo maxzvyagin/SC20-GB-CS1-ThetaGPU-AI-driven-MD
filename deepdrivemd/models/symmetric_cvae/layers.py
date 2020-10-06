@@ -221,6 +221,8 @@ def build_model(net, params):
         name="embedding",
     )
 
+    embedding_output = net
+
     # Decoder dense layers
     net = dense(
         inputs=net,
@@ -264,4 +266,4 @@ def build_model(net, params):
     net = tf.keras.layers.Flatten(name="flatten_final")(net)
     tf.compat.v1.logging.info(f"Shape net after {net.name}: {net.get_shape()}")
 
-    return net, kl_loss
+    return net, kl_loss, embedding_output

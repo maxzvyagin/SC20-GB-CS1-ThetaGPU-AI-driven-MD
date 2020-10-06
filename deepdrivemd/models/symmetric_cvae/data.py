@@ -132,6 +132,23 @@ def parse_function_record(dtype, input_shape, final_shape):
         return tf.cast(act_img, dtype), tf.cast(flat_img, dtype)
     return _parse_record
 
+def parse_function_record_predict(dtype, input_shape, final_shape):
+    feature_description = {
+        'image_raw': tf.io.FixedLenFeature([1], tf.string),
+    }
+    def _parse_record(record):
+        features = tf.parse_example(
+            record,
+            features=feature_description
+        )
+        # dtype should match what was used in utils.py
+        image = tf.decode_raw(features['image_raw'], tf.float16)
+        batch_size = image.shape.as_list()[0]
+        image = tf.reshape(image, [batch_size]+input_shape)
+        act_img = tf.slice(image, [0, 0, 0, 0], [batch_size]+final_shape)
+        return tf.cast(act_img, dtype)
+    return _parse_record
+
 
 def sort_string_numbers(filename):
     part2 = ".tfrecords"

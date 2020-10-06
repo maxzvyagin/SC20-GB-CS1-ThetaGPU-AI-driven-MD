@@ -115,18 +115,22 @@ class CVAEModelConfig(BaseSettings):
     loss_scale: float = 1
 
 
+class ExtrinsicScore(str, Enum):
+    rmsd_to_reference_state = "rmsd_to_reference_state"
+
 class OutlierDetectionConfig(BaseSettings):
     md_dir: Path  # MD simulation direction
     cvae_dir: Path  # CVAE model directory
     pdb_file: Path
     reference_pdb_file: Path
     num_outliers: int = 500
-    timeout_ns: float = 10.0
+    extrinsic_outlier_score: ExtrinsicScore = "rmsd_to_reference_state"
     model_params: CVAEModelConfig
     sklearn_num_cpus: int = 16
     logging: LoggingConfig
     local_scratch_dir: Path = Path("/raid/scratch")
     max_num_old_h5_files: int = 1000
+    walltime_min: int
 
 
 class GPUTrainingConfig(CVAEModelConfig):
@@ -169,6 +173,7 @@ class ExperimentConfig(BaseSettings):
     outlier_detection: OutlierDetectionConfig
     gpu_training: Optional[GPUTrainingConfig]
     cs1_training: Optional[CS1TrainingConfig]
+    walltime_min: int
 
     logging: LoggingConfig
 
