@@ -287,7 +287,7 @@ def main():
             config.model_params,
             data_generator,
         )
-        logger.info("end model prediction")
+        logger.info(f"end model prediction: generated {len(embeddings)} embeddings")
 
         logger.info(
             f"Starting outlier searching with n_outliers="
