@@ -45,16 +45,16 @@ def cm_to_cvae(cm_data, padding=2):
 def stamp_to_time(stamp): 
     import datetime
     return datetime.datetime.fromtimestamp(stamp).strftime('%Y-%m-%d %H:%M:%S') 
-    
 
-def find_frame(traj_dict, frame_number=0): 
+
+ def find_frame(traj_dict, frame_number=0): 
     local_frame = frame_number
-    for omm_run in sorted(traj_dict.keys()): 
-        if local_frame - int(traj_dict[omm_run]) < 0: 
-            return omm_run, local_frame
+    for key in sorted(traj_dict): 
+        if local_frame - traj_dict[key] < 0:            
+            return local_frame, key
         else: 
-            local_frame -= int(traj_dict[omm_run])
-    raise Exception('frame %d should not exceed the total number of frames, %d' % (frame_number, sum(np.array(traj_dict.values()).astype(int))))
+            local_frame -= traj_dict[key]
+    raise Exception('frame %d should not exceed the total number of frames, %d' % (frame_number, sum(np.array(traj_dict.values()).astype(int))))   
     
     
 def write_pdb_frame(traj_file, pdb_file, frame_number, output_pdb): 

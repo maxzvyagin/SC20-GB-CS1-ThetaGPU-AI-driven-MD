@@ -3,6 +3,7 @@ import yaml
 import argparse
 import simtk.unit as u
 from deepdrivemd.sim.openmm_sim import run_simulation
+from deepdrivemd.util import config_logging
 
 
 def get_config() -> dict:
@@ -37,5 +38,7 @@ def build_simulation_params(cfg: dict) -> dict:
 
 if __name__ == "__main__":
     cfg = get_config()
+    log_fname = os.path.join(cfg["result_dir"], cfg["omm_dir_prefix"] + ".log")
+    config_logging(filename=log_fname, **cfg["logging"])
     simulation_kwargs = build_simulation_params(cfg)
     run_simulation(**simulation_kwargs)

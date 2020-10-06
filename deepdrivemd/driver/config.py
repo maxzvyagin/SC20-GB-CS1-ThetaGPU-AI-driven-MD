@@ -13,6 +13,16 @@ class MDType(str, Enum):
     explicit = "explicit"
 
 
+class LoggingConfig(BaseSettings):
+    level: str = "DEBUG"
+    format: str = (
+        "'%(asctime)s|%(process)d|%(thread)d|%(levelname)8s|%(name)s:%(lineno)s] %(message)s'"
+    )
+    datefmt: str = "%d-%b-%Y %H:%M:%S"
+    buffer_num_records: int = 10
+    flush_period: int = 30
+
+
 class MDConfig(BaseSettings):
     """
     Auto-generates configuration file for run_openmm.py
@@ -33,6 +43,7 @@ class MDConfig(BaseSettings):
     omm_dir_prefix: str
     local_run_dir: Path = Path("/raid/scratch")
     input_dir: Path
+    logging: LoggingConfig
 
     def dump_yaml(self, file):
         yaml.dump(json.loads(self.json()), file)
@@ -60,25 +71,7 @@ class MDRunnerConfig(BaseSettings):
     ]
 
 
-class OutlierDetectionConfig(BaseSettings):
-    num_jobs: int
-
-
-class GPUTrainingConfig(BaseSettings):
-    pass
-
-
-class CS1TrainingConfig(BaseSettings):
-    hostname: str = "medulla1"
-    medulla_experiment_path: Path
-    run_script: Path = Path("/data/shared/vishal/ANL-shared/cvae_gb/run_mixed.sh")
-    sim_data_dir: Optional[Path]
-    data_dir: Optional[Path]
-    eval_data_dir: Optional[Path]
-    global_path: Optional[Path]  # files_seen36.txt
-    theta_gpu_path: Optional[Path]
-    model_dir: Optional[Path]
-
+class CVAEModelConfig(BaseSettings):
     fraction: float = 0.2
     last_n_files: int = 1
     last_n_files_eval: int = 1
@@ -121,6 +114,36 @@ class CS1TrainingConfig(BaseSettings):
     learning_rate: float = 2.0e-5
     loss_scale: float = 1
 
+
+class OutlierDetectionConfig(BaseSettings):
+    md_dir: Path  # MD simulation direction
+    cvae_dir: Path  # CVAE model directory
+    pdb_file: Path
+    reference_pdb_file: Path
+    num_outliers: int = 500
+    timeout_ns: float = 10.0
+    model_params: CVAEModelConfig
+    sklearn_num_cpus: int = 16
+    logging: LoggingConfig
+    local_scratch_dir: Path = Path("/raid/scratch")
+    max_num_old_h5_files: int = 1000
+
+
+class GPUTrainingConfig(CVAEModelConfig):
+    pass
+
+
+class CS1TrainingConfig(CVAEModelConfig):
+    hostname: str = "medulla1"
+    medulla_experiment_path: Path
+    run_script: Path = Path("/data/shared/vishal/ANL-shared/cvae_gb/run_mixed.sh")
+    sim_data_dir: Optional[Path]
+    data_dir: Optional[Path]
+    eval_data_dir: Optional[Path]
+    global_path: Optional[Path]  # files_seen36.txt
+    theta_gpu_path: Optional[Path]
+    model_dir: Optional[Path]
+
     # Logging params are not supported on CS-1 and are disabled in run.py.
     metrics: bool = True
 
@@ -146,6 +169,8 @@ class ExperimentConfig(BaseSettings):
     outlier_detection: OutlierDetectionConfig
     gpu_training: Optional[GPUTrainingConfig]
     cs1_training: Optional[CS1TrainingConfig]
+
+    logging: LoggingConfig
 
 
 def read_yaml_config(fname: str) -> ExperimentConfig:
