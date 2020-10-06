@@ -165,12 +165,13 @@ def dispatch_od_run(manager, config: ExperimentConfig, md_dir: Path):
     )
     outlier_cfg = config.outlier_detection
     outlier_cfg.md_dir = md_dir
-    outlier_cfg.cvae_dir = config.cs1_training.theta_gpu_path
+    if config.cs1_training:
+        outlier_cfg.cvae_dir = config.cs1_training.theta_gpu_path
     outlier_cfg.walltime_min = config.walltime_min
 
     cfg_path = config.experiment_directory.joinpath("lof.yaml")
     with open(cfg_path, "w") as fp:
-        cfg.dump_yaml(fp)
+        outlier_cfg.dump_yaml(fp)
     od_run = MPIRun(
         config.outlier_detection.run_command + f" -c {cfg_path}",
         node_list=nodes,

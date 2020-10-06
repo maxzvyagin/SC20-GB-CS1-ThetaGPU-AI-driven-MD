@@ -120,7 +120,7 @@ class ExtrinsicScore(str, Enum):
 
 class OutlierDetectionConfig(BaseSettings):
     md_dir: Optional[Path] = None  # MD simulation direction
-    cvae_dir: Optional[Path] = None  # CVAE model directory
+    cvae_dir: Path # CVAE model directory
     walltime_min: int
     num_outliers: int = 500
     extrinsic_outlier_score: ExtrinsicScore = ExtrinsicScore.none
@@ -206,6 +206,7 @@ def generate_sample_config():
     outlier_detection = OutlierDetectionConfig(
         walltime_min=120,
         logging=logging,
+        cvae_dir="/path/to/weights",
     )
     cs1_training = CS1TrainingConfig(
         medulla_experiment_path="/data/shared/experiment/on/medulla1",
