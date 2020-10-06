@@ -13,7 +13,8 @@ import h5py
 
 import MDAnalysis as mda
 
-from deepdrivemd.util import FileLock, config_logging
+from deepdrivemd import config_logging
+from deepdrivemd.util import FileLock
 from deepdrivemd.driver.config import OutlierDetectionConfig, CVAEModelConfig
 
 from deepdrivemd.models.symmetric_cvae.utils import write_to_tfrecords

@@ -26,7 +26,7 @@ from .cs1_manager import (
     stop_cs1_trainer,
 )
 
-from deepdrivemd.util import config_logging
+from deepdrivemd import config_logging
 import logging
 
 logger = logging.getLogger(__name__)
@@ -81,8 +81,8 @@ def launch_md(
     )
 
     # Push the YAML over to node-local storage, then start run
-    cfg_path = input_dir.joinpath('omm.yaml')
-    with open(cfg_path, mode='w') as fp:
+    cfg_path = input_dir.joinpath("omm.yaml")
+    with open(cfg_path, mode="w") as fp:
         run_config.dump_yaml(fp)
     run = MPIRun(
         config.md_run_command + f" -c {cfg_path}",
@@ -172,13 +172,13 @@ def dispatch_od_run(manager, config: ExperimentConfig, md_dir: Path):
     cfg_path = config.experiment_directory.joinpath("lof.yaml")
     with open(cfg_path, "w") as fp:
         outlier_cfg.dump_yaml(fp)
-    #od_run = MPIRun(
+    # od_run = MPIRun(
     #    config.outlier_detection.run_command + f" -c {cfg_path}",
     #    node_list=nodes,
     #    ranks_per_node=1,
     #    gpu_ids=gpu_ids,
     #    output_file=cfg_path.with_suffix(".out"),
-    #)
+    # )
     od_run = None
     return od_run
 
@@ -225,6 +225,14 @@ def main(config_filename: str):
 
     if cs1_training is not None:
         cs1_training.stop()
+
+
+def test_log():
+    from deepdrivemd.driver.config import LoggingConfig
+
+    log_conf = LoggingConfig().dict()
+    config_logging(filename="tester123.log", **log_conf)
+    logger.info("This is only a test")
 
 
 if __name__ == "__main__":

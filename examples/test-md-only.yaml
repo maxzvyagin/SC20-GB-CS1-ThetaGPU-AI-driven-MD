@@ -6,10 +6,9 @@ gpu_training: null
 
 logging:
   buffer_num_records: 1024
-  datefmt: '%d-%b-%Y %H:%M:%S'
+  datefmt: "%d-%b-%Y %H:%M:%S"
   flush_period: 30
-  format: '''%(asctime)s|%(process)d|%(thread)d|%(levelname)8s|%(name)s:%(lineno)s]
-    %(message)s'''
+  format: "%(asctime)s|%(process)d|%(thread)d|%(levelname)8s|%(name)s:%(lineno)s] %(message)s"
   level: DEBUG
 
 md_runner:
@@ -17,9 +16,9 @@ md_runner:
   initial_configs_dir: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/1FME
   local_run_dir: /raid/scratch
   md_environ_setup:
-  - eval "$(/lus/theta-fs0/projects/RL-fold/msalim/miniconda3/bin/conda shell.bash hook)"
-  - conda activate /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm
-  - export PYTHONPATH=/lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD:$PYTHONPATH
+    - eval "$(/lus/theta-fs0/projects/RL-fold/msalim/miniconda3/bin/conda shell.bash hook)"
+    - conda activate /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm
+    - export PYTHONPATH=/lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD:$PYTHONPATH
   md_run_command: /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm/bin/python -m deepdrivemd.sim.run_openmm
   num_jobs: 8
   reeval_time_ns: 2
@@ -35,67 +34,66 @@ outlier_detection:
   local_scratch_dir: /raid/scratch
   logging:
     buffer_num_records: 1024
-    datefmt: '%d-%b-%Y %H:%M:%S'
+    datefmt: "%d-%b-%Y %H:%M:%S"
     flush_period: 30
-    format: '''%(asctime)s|%(process)d|%(thread)d|%(levelname)8s|%(name)s:%(lineno)s]
-      %(message)s'''
+    format: "%(asctime)s|%(process)d|%(thread)d|%(levelname)8s|%(name)s:%(lineno)s] %(message)s"
     level: DEBUG
   max_num_old_h5_files: 1000
   md_dir: null
   model_params:
     activation: relu
     allowed_optimizers:
-    - sgd
-    - sgdm
-    - adam
-    - rmsprop
+      - sgd
+      - sgdm
+      - adam
+      - rmsprop
     batch_size: 1
     beta1: 0.2
     beta2: 0.9
     data_random_seed: null
     dec_conv_filters:
-    - 100
-    - 100
-    - 100
-    - 100
+      - 100
+      - 100
+      - 100
+      - 100
     dec_conv_kernels:
-    - 5
-    - 5
-    - 5
-    - 5
+      - 5
+      - 5
+      - 5
+      - 5
     dec_conv_strides:
-    - 1
-    - 2
-    - 1
-    - 1
+      - 1
+      - 2
+      - 1
+      - 1
     decay: 0.9
     dense_units: 64
     enc_conv_filters:
-    - 100
-    - 100
-    - 100
-    - 100
+      - 100
+      - 100
+      - 100
+      - 100
     enc_conv_kernels:
-    - 5
-    - 5
-    - 5
-    - 5
+      - 5
+      - 5
+      - 5
+      - 5
     enc_conv_strides:
-    - 1
-    - 1
-    - 2
-    - 1
+      - 1
+      - 1
+      - 2
+      - 1
     epsilon: 1.0e-08
     fraction: 0.2
     full_precision_loss: false
     h5_shape:
-    - 1
-    - 36
-    - 36
+      - 1
+      - 36
+      - 36
     input_shape:
-    - 1
-    - 32
-    - 32
+      - 1
+      - 32
+      - 32
     itemsize: 1
     kl_loss_reduction_type: sum
     last_n_files: 1
@@ -110,9 +108,9 @@ outlier_detection:
     reconstruction_loss_reduction_type: sum
     samples_per_file: 1
     tfrecord_shape:
-    - 1
-    - 36
-    - 36
+      - 1
+      - 36
+      - 36
   num_nodes: 1
   num_outliers: 500
   ranks_per_node: 1

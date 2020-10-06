@@ -3,7 +3,7 @@ import yaml
 import argparse
 import simtk.unit as u
 from deepdrivemd.sim.openmm_sim import run_simulation
-from deepdrivemd.util import config_logging
+from deepdrivemd import config_logging
 
 import logging
 

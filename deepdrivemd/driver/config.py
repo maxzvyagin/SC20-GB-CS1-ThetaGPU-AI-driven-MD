@@ -15,7 +15,7 @@ class MDType(str, Enum):
 
 class LoggingConfig(BaseSettings):
     level: str = "DEBUG"
-    format: str = "'%(asctime)s|%(process)d|%(thread)d|%(levelname)8s|%(name)s:%(lineno)s] %(message)s'"
+    format: str = "%(asctime)s|%(process)d|%(thread)d|%(levelname)8s|%(name)s:%(lineno)s] %(message)s"
     datefmt: str = "%d-%b-%Y %H:%M:%S"
     buffer_num_records: int = 1024
     flush_period: int = 30
@@ -120,7 +120,7 @@ class ExtrinsicScore(str, Enum):
 
 class OutlierDetectionConfig(BaseSettings):
     md_dir: Optional[Path] = None  # MD simulation direction
-    cvae_dir: Path # CVAE model directory
+    cvae_dir: Path  # CVAE model directory
     walltime_min: int
     num_outliers: int = 500
     extrinsic_outlier_score: ExtrinsicScore = ExtrinsicScore.none
