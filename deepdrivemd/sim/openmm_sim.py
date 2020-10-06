@@ -160,7 +160,7 @@ class SimulationContext:
         self._omm_dir_prefix = omm_dir_prefix
         self._omm_parent_dir = omm_parent_dir
 
-        self._initial_configs_dir = initial_configs_dir
+        self._initial_configs_dir = Path(initial_configs_dir)
         # Input dir for receiving new PDBs, topologies and halt signal
         self._input_dir = input_dir  # md_runs/input_run0004
         self._result_dir = result_dir
@@ -219,11 +219,11 @@ class SimulationContext:
             logger.debug(f"No new PDB yet")
             return False
 
-        logger.info(f"New PDB file detected; launching new sim: {self.pdb_file}")
-        self._new_context(copy=True)
+        self._new_context(copy=self.pdb_file is not None)
 
         with FileLock(pdb_file):
             self.pdb_file = shutil.move(pdb_file.as_posix(), self.workdir)
+        logger.info(f"New PDB file detected; launching new sim: {self.pdb_file}")
 
         # TODO: this is brittle; be careful!
         system_dir = Path(self.pdb_file).with_suffix("").name.split("__")[1]

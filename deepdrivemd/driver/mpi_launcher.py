@@ -142,7 +142,7 @@ class MPIRunTemplate:
         return (
             f"mpirun -hostfile {hostfile} --oversubscribe --bind-to none "
             f"-n {num_ranks} -npernode {ranks_per_node} "
-            f"{envs} {hosts} {command_line}"
+            f"{envs} -x PYTHONPATH {hosts} {command_line}"
         )
 
 

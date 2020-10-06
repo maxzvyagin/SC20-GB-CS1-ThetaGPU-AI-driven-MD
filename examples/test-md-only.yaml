@@ -13,14 +13,14 @@ logging:
   level: DEBUG
 
 md_runner:
-  frames_per_h5: 1024
+  frames_per_h5: 10
   initial_configs_dir: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/1FME
   local_run_dir: /raid/scratch
   md_environ_setup:
   - eval "$(/lus/theta-fs0/projects/RL-fold/msalim/miniconda3/bin/conda shell.bash hook)"
   - conda activate /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm
-  - export PYTHONPATH=/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD:$PYTHONPATH
-  md_run_command: /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm/bin/python run_openmm.py
+  - export PYTHONPATH=/lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD:$PYTHONPATH
+  md_run_command: /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm/bin/python -m deepdrivemd.sim.run_openmm
   num_jobs: 8
   reeval_time_ns: 2
   reference_pdb_file: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/1FME/1FME-folded.pdb

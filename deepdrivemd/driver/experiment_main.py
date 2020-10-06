@@ -1,5 +1,6 @@
 import itertools
 import random
+import os
 import sys
 import shutil
 import time
@@ -79,18 +80,16 @@ def launch_md(
     )
 
     # Push the YAML over to node-local storage, then start run
-    with NamedTemporaryFile(prefix=omm_dir_prefix) as fp:
+    cfg_path = input_dir.joinpath('omm.yaml')
+    with open(cfg_path, mode='w') as fp:
         run_config.dump_yaml(fp)
-        fp.flush()
-        Connection(hostname).put(fp.name, run_config.local_run_dir)
-        cfg_path = run_config.local_run_dir.joinpath(fp.name)
-        run = MPIRun(
-            config.md_run_command + f" -c {cfg_path}",
-            node_list=nodes,
-            ranks_per_node=1,
-            gpu_ids=gpu_ids,
-            output_file=md_dir.joinpath(omm_dir_prefix + ".out"),
-        )
+    run = MPIRun(
+        config.md_run_command + f" -c {cfg_path}",
+        node_list=nodes,
+        ranks_per_node=1,
+        gpu_ids=gpu_ids,
+        output_file=md_dir.joinpath(omm_dir_prefix + ".out"),
+    )
     return run
 
 
@@ -172,13 +171,14 @@ def dispatch_od_run(manager, config: ExperimentConfig, md_dir: Path):
     cfg_path = config.experiment_directory.joinpath("lof.yaml")
     with open(cfg_path, "w") as fp:
         outlier_cfg.dump_yaml(fp)
-    od_run = MPIRun(
-        config.outlier_detection.run_command + f" -c {cfg_path}",
-        node_list=nodes,
-        ranks_per_node=1,
-        gpu_ids=gpu_ids,
-        output_file=cfg_path.with_suffix(".out"),
-    )
+    #od_run = MPIRun(
+    #    config.outlier_detection.run_command + f" -c {cfg_path}",
+    #    node_list=nodes,
+    #    ranks_per_node=1,
+    #    gpu_ids=gpu_ids,
+    #    output_file=cfg_path.with_suffix(".out"),
+    #)
+    od_run = None
     return od_run
 
 

@@ -10,7 +10,7 @@ class FileLock:
     EXPIRATION_SECONDS = 20
 
     def __init__(self, path):
-        self.lock_path = path + ".lock"
+        self.lock_path = str(path) + ".lock"
 
     def check_stale(self):
         try:

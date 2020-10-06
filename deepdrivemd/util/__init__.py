@@ -1,4 +1,5 @@
 import logging, logging.handlers
+import sys
 import time
 
 from .filelock import FileLock
@@ -60,15 +61,16 @@ def config_logging(filename, level, format, datefmt, buffer_num_records, flush_p
         handlers=[mem_handler],
     )
 
+    _logger = logging.getLogger(__name__)
+    handler = logging.StreamHandler()
+    _logger.addHandler(handler)
     def log_uncaught_exceptions(exctype, value, tb):
         _logger.error(
             f"Uncaught Exception {exctype}: {value}", exc_info=(exctype, value, tb)
         )
         for handler in _logger.handlers:
             handler.flush()
-
-
-sys.excepthook = log_uncaught_exceptions
+    sys.excepthook = log_uncaught_exceptions
 
 
 __all__ = ["FileLock", "LocalCopySender", "RemoteCopySender", "config_logging"]
