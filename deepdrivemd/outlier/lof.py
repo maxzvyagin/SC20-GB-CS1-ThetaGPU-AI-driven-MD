@@ -1,22 +1,34 @@
 from concurrent.futures import ThreadPoolExecutor
 import os
 from pathlib import Path
+from functools import lru_cache
 import time
 import yaml
-import random
 import shutil
 import argparse
 import queue
+import random
 import numpy as np
 from glob import glob
+
+import tensorflow as tf
+import h5py
+
 import MDAnalysis as mda
-from deepdrivemd.util import FileLock
-from deepdrivemd.driver.config import OutlierDetectionConfig
+from MDAnalysis.analysis.rms import RMSD
+
+from deepdrivemd.util import FileLock, config_logging
+from deepdrivemd.driver.config import OutlierDetectionConfig, CVAEModelConfig
+
+from deepdrivemd.models.symmetric_cvae.utils import write_to_tfrecords
+from deepdrivemd.models.symmetric_cvae.data import parse_function_record
+from deepdrivemd.models.symmetric_cvae.model import model_fn
+
+from deepdrivemd.models.symmetric_cvae.prepare_dataset import update_dataset
+
 from deepdrivemd.outlier.utils import predict_from_cvae, outliers_from_latent_loc
 from deepdrivemd.outlier.utils import outliers_largeset
 from deepdrivemd.outlier.utils import find_frame, write_pdb_frame
-from deepdrivemd.util import config_logging
-from MDAnalysis.analysis.rms import RMSD
 
 import logging
 
@@ -40,19 +52,27 @@ class OutlierDetectionContext:
         local_scratch_dir,
         md_dir,
         cvae_dir,
+        max_num_old_h5_files,
+        model_params: CVAEModelConfig,
         **kwargs,
     ):
         self.pdb_file = Path(pdb_file).resolve()
         self.reference_pdb_file = Path(reference_pdb_file).resolve()
         self.md_dir = Path(md_dir).resolve()
         self.cvae_dir = Path(cvae_dir).resolve()
+
         self._local_scratch_dir = local_scratch_dir
+        self._tfrecords_dir = local_scratch_dir.joinpath("tfrecords")
+        self._seen_h5_files_set = set()
 
         self._cvae_weights_file = None
         self._last_acquired_cvae_lock = None
         self._md_input_dirs = None
         self._h5_dcd_map = {}
         self._pdb_outlier_queue = queue.PriorityQueue()
+        self._model_params = model_params
+        self._h5_contact_map_length = None
+        self.max_num_old_h5_files = max_num_old_h5_files
 
     @property
     def h5_files(self):
@@ -112,8 +132,13 @@ class OutlierDetectionContext:
         local_pdb_path = self.generate_pdb_file(dcd_filename, frame_index)
         logger.info("outlier .pdb write done")
         target = input_dir.joinpath(local_pdb_path)
+        logger.debug(f"Acquiring FileLock to write {target}")
         with FileLock(target):
+            logger.debug(f"FileLock acquired")
+            start = time.perf_counter()
             shutil.move(local_pdb_path, target)
+            elapsed = time.perf_counter() - start
+            logger.info(f"shutil.move wrote {target.name} in {elapsed:.2f} seconds")
 
     def rescan_h5_dcd(self):
         for done_path in self.md_dir.glob("**/DONE"):
@@ -137,6 +162,66 @@ class OutlierDetectionContext:
         self._cvae_weights_file = all_weights[-1]
         # TODO: Make sure to use FileLock before loading weights!
 
+    def get_h5_length(self, h5_file):
+        if self._h5_contact_map_length is None:
+            with h5py.File(h5_file, "r") as f:
+                self._h5_contact_map_length = len(f["contact_map"])
+        return self._h5_contact_map_length
+
+    def update_dataset(self):
+        num_h5s = min(len(self.h5_files), self.max_num_old_h5_files)
+        stride = int(len(self.h5_files) // num_h5s)
+        h5_indices = list(range(0, len(self.h5_files), stride))
+        old_h5_indices = random.choices(self.h5_files, k=min(len(self.h5_files, 100)))
+        new_h5_files = list(set(self.h5_files).difference(self._seen_h5_files_set))
+        self._seen_h5_files_set.update(new_h5_files)
+        write_to_tfrecords(
+            files=new_h5_files,
+            initial_shape=self._model_params.h5_shape[1:],
+            final_shape=self._model_params.tfrecord_shape[1:],
+            num_samples=self.get_h5_length(new_h5_files[0]),
+            train_dir_path=self._tfrecords_dir,
+            eval_dir_path=self._tfrecords_dir,
+            fraction=0.0,
+        )
+
+
+        def data_generator():
+            dtype = tf.float16 if self._model_params.mixed_precision else tf.float32
+            files = list(Path(self._tfrecords_dir).glob("*.tfrecords"))
+            list_files = tf.data.Dataset.list_files(files)
+            dataset = tf.data.TFRecordDataset(list_files)
+            dataset = dataset.batch(self._model_params.batch_size, drop_remainder=False)
+            parse_sample = parse_function_record(
+                dtype, self._model_params.tfrecord_shape, self._model_params.input_shape
+            )
+            return dataset.map(parse_sample)
+
+
+        return data_generator
+
+
+def predict_from_cvae(workdir: Path, weights_file, config: CVAEModelConfig, h5_files):
+    params = config.dict()
+    params["sim_data_dir"] = workdir.as_posix()
+    params["data_dir"] = workdir.as_posix()
+    params["eval_data_dir"] = workdir.as_posix()
+    params["global_path"] = workdir.joinpath("files_seen.txt").as_posix()
+    params["fraction"] = 0.0
+
+    config = tf.estimator.RunConfig()
+    est = tf.estimator.Estimator(
+        model_fn,
+        params=params,
+        config=config,
+    )
+    gen = est.predict(
+        input_fn=produce_dataset,
+        checkpoint_path=weights_file,
+        yield_single_examples=True,
+    )
+    return np.array([list(it.values())[0] for it in gen])
+
 
 def main():
     config = get_config()
@@ -153,12 +238,10 @@ def main():
         # NOTE: It's up to the ML service to do model selection;
         # we're assuming the latest cvae weights file has the best model
         ctx.update_model()
-
-        # Get the predicted embeddings
-        cm_predict, train_data_length = predict_from_cvae(
+        data_generator = ctx.update_dataset()
+        cm_predict = predict_from_cvae(
             ctx.cvae_weights_file,
-            config.model_params,  # This is a CVAEModelConfig object
-            ctx.h5_files,
+            data_generator,
         )
 
         # A record of every trajectory length

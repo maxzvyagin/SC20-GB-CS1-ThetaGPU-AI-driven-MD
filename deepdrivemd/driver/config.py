@@ -126,6 +126,7 @@ class OutlierDetectionConfig(BaseSettings):
     sklearn_num_cpus: int = 16
     logging: LoggingConfig
     local_scratch_dir: Path = Path("/raid/scratch")
+    max_num_old_h5_files: int = 1000
 
 
 class GPUTrainingConfig(CVAEModelConfig):

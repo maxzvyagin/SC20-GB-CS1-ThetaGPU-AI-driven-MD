@@ -1,7 +1,7 @@
-
 import glob
 import os
-from utils import write_to_tfrecords, get_params
+from .utils import write_to_tfrecords, get_params
+
 
 def update_dataset(params):
     sim_data_dir = params["sim_data_dir"]
@@ -21,19 +21,19 @@ def update_dataset(params):
     files_seen = [f.split()[0] for f in files_seen]
     print(files_seen)
     h5_files = glob.glob(f"{sim_data_dir}/*.h5")
-    h5_files = list(set(h5_files)-set(files_seen))
+    h5_files = list(set(h5_files) - set(files_seen))
     write_to_tfrecords(
-            files=h5_files,
-            initial_shape=h5_shape[1:],
-            final_shape=tfrecord_shape[1:],
-            num_samples=num_samples,
-            train_dir_path=train_data_dir,
-            eval_dir_path=eval_data_dir,
-            fraction=fraction
-        )
+        files=h5_files,
+        initial_shape=h5_shape[1:],
+        final_shape=tfrecord_shape[1:],
+        num_samples=num_samples,
+        train_dir_path=train_data_dir,
+        eval_dir_path=eval_data_dir,
+        fraction=fraction,
+    )
     with open(files_seen_file, "a") as f:
         for file_seen in h5_files:
-            f.writelines(f"{file_seen}\n")
+            f.write(f"{file_seen}\n")
 
 
 params = get_params()
