@@ -16,23 +16,21 @@ def get_config() -> dict:
 
 
 def build_simulation_params(cfg: dict) -> dict:
-    top_file = cfg.get("top_file", None)
-
     return dict(
-        pdb_file=cfg["pdb_file"],
         reference_pdb_file=cfg["reference_pdb_file"],
-        top_file=top_file,
         omm_dir_prefix=cfg["omm_dir_prefix"],
         local_run_dir=cfg["local_run_dir"],
         gpu_index=0,
         sim_type=cfg["sim_type"],
         report_interval_ps=float(cfg["report_interval_ps"]) * u.picoseconds,
+        frames_per_h5=cfg["frames_per_h5"],
         sim_time=float(cfg["simulation_length_ns"]) * u.nanoseconds,
         reeval_time=float(cfg["reeval_time_ns"]) * u.nanoseconds,
         dt_ps=float(cfg["dt_ps"]) * u.picoseconds,
         h5_scp_path=cfg["h5_scp_path"],
         result_dir=cfg["result_dir"],
         input_dir=cfg["input_dir"],
+        initial_configs_dir=cfg["initial_configs_dir"],
     )
 
 

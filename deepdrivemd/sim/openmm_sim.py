@@ -3,6 +3,7 @@ import glob
 import logging
 from pathlib import Path
 import shutil
+import time
 import random
 
 import parmed as pmd
@@ -79,6 +80,7 @@ def configure_simulation(
     gpu_index=0,
     dt_ps=0.002 * u.picoseconds,
     report_interval_ps=10 * u.picoseconds,
+    frames_per_h5=2,
 ):
     logger.info(f"configure_simulation: {sim_type} {ctx.pdb_file}")
     # Configure hardware
@@ -117,7 +119,11 @@ def configure_simulation(
     # Configure contact map reporter
     sim.reporters.append(
         SparseContactMapReporter(
-            ctx.h5_prefix, report_freq, ctx.reference_pdb_file, senders=[ctx.scp_sender]
+            ctx.h5_prefix,
+            report_freq,
+            ctx.reference_pdb_file,
+            senders=[ctx.scp_sender],
+            batch_size=frames_per_h5,
         )
     )
 
@@ -140,20 +146,21 @@ def configure_simulation(
 class SimulationContext:
     def __init__(
         self,
-        pdb_file,
         reference_pdb_file,
-        top_file,
         omm_dir_prefix,
         omm_parent_dir,
         input_dir,
         h5_scp_path,
         result_dir,
+        initial_configs_dir,
     ):
 
         # Index for naming new omm_dirs
         self._file_id = 0
         self._omm_dir_prefix = omm_dir_prefix
         self._omm_parent_dir = omm_parent_dir
+
+        self._initial_configs_dir = initial_configs_dir
         # Input dir for receiving new PDBs, topologies and halt signal
         self._input_dir = input_dir  # md_runs/input_run0004
         self._result_dir = result_dir
@@ -166,8 +173,8 @@ class SimulationContext:
         else:
             self.scp_sender = None
 
-        self.pdb_file = pdb_file
-        self.top_file = top_file
+        self.pdb_file = None
+        self.top_file = None
         self.reference_pdb_file = reference_pdb_file
         self._new_context(copy=False)
 
@@ -217,10 +224,12 @@ class SimulationContext:
         with FileLock(pdb_file):
             self.pdb_file = shutil.move(pdb_file.as_posix(), self.workdir)
 
-        top_file = self._find_in_input_dir("*.top")
+        # TODO: this is brittle; be careful!
+        system_dir = Path(self.pdb_file).with_suffix("").name.split("__")[1]
+        top_file = list(self._initial_configs_dir.joinpath(system_dir).glob("*.top"))[1]
         if top_file is not None:
             with FileLock(top_file):
-                self.top_file = shutil.move(top_file.as_posix(), self.workdir)
+                self.top_file = shutil.copy(top_file.as_posix(), self.workdir)
         return True
 
     def copy_context(self):
@@ -253,32 +262,31 @@ class SimulationContext:
 
 
 def run_simulation(
-    pdb_file,
     reference_pdb_file,
-    top_file,
     omm_dir_prefix,
     local_run_dir,
     gpu_index,
     sim_type,
     report_interval_ps,
+    frames_per_h5,
     sim_time,
     reeval_time,
     dt_ps,
     h5_scp_path,
     result_dir,
     input_dir,
+    initial_configs_dir,
 ):
 
     # Context to manage files and directory structure
     ctx = SimulationContext(
-        pdb_file=pdb_file,
         reference_pdb_file=reference_pdb_file,
-        top_file=top_file,
         omm_dir_prefix=omm_dir_prefix,
         omm_parent_dir=local_run_dir,
+        input_dir=input_dir,
         h5_scp_path=h5_scp_path,
         result_dir=result_dir,
-        input_dir=input_dir,
+        initial_configs_dir=initial_configs_dir,
     )
 
     # Number of steps to run each simulation
@@ -291,7 +299,9 @@ def run_simulation(
     # times, the new PDB is favored and simulated once the old
     # simulation finishes it's final run.
 
-    # Loop until halt signal is sent
+    while not ctx.is_new_pdb():
+        time.sleep(5)
+
     while not ctx.halt_signal():
 
         sim = configure_simulation(
@@ -300,6 +310,7 @@ def run_simulation(
             sim_type=sim_type,
             dt_ps=dt_ps,
             report_interval_ps=report_interval_ps,
+            frames_per_h5=frames_per_h5,
         )
 
         for _ in range(niter):

@@ -94,7 +94,9 @@ class OutlierDetectionContext:
             self._md_input_dirs = list(self.md_dir.glob("input_*"))
         return self._md_input_dirs
 
-    def put_outlier(self, dcd_filename, frame_index, created_time, intrinsic_score, extrinsic_score):
+    def put_outlier(
+        self, dcd_filename, frame_index, created_time, intrinsic_score, extrinsic_score
+    ):
         assert created_time > 0
         assert intrinsic_score < 0
         if extrinsic_score == None:
@@ -130,10 +132,14 @@ class OutlierDetectionContext:
                 pass
 
     def generate_pdb_file(self, dcd_filename: Path, frame_index: int) -> Path:
-        outlier_pdb_fname = dcd_filename.with_suffix("").name + f"_{frame_index}.pdb"
+        pdb_path = list(dcd_filename.parent.glob("*.pdb"))[0]
+        system_name = pdb_path.with_suffix("").name.split("__")[1]
+        # run_058/something.dcd -> something
+        outlier_pdb_fname = (
+            dcd_filename.with_suffix("").name + f"__{system_name}__{frame_index}.pdb"
+        )
         outlier_pdb_file = self._local_scratch_dir.joinpath(outlier_pdb_fname)
 
-        pdb_path = dcd_filename.with_suffix(".pdb")
         mda_traj = mda.Universe(pdb_path.as_posix(), dcd_filename.as_posix())
         mda_traj.trajectory[frame_index]
 
@@ -208,15 +214,16 @@ class OutlierDetectionContext:
             eval_dir_path=self.tfrecords_dir,
             fraction=0.0,
         )
-        
+
         # Get all files sorted by creation index
         files = sorted(
             Path(self.tfrecords_dir).glob("*.tfrecords"),
-            key=lambda path: path.name.split('_')[1])
+            key=lambda path: path.name.split("_")[1],
+        )
 
         # Get even sample of previosuly seen data and all of the new data
         old_files = [files[i] for i in old_h5_indices]
-        files = old_files + files[-1 * len(new_h5_files):] 
+        files = old_files + files[-1 * len(new_h5_files) :]
 
         # Use files closure to get correct data sample
         def data_generator():
@@ -236,7 +243,9 @@ class OutlierDetectionContext:
             md_dir.joinpath("halt").touch()
 
 
-def predict_from_cvae(workdir: Path, weights_file: str, config: CVAEModelConfig, data_generator):
+def predict_from_cvae(
+    workdir: Path, weights_file: str, config: CVAEModelConfig, data_generator
+):
     params = config.dict()
     params["sim_data_dir"] = workdir.as_posix()
     params["data_dir"] = workdir.as_posix()
@@ -278,7 +287,7 @@ def main():
             ctx.tfrecords_dir,
             ctx.cvae_weights_file,
             config.model_params,
-            data_generator
+            data_generator,
         )
 
         logger.info(
@@ -287,15 +296,13 @@ def main():
         )
 
         outlier_inds, outlier_scores = outlier_search_lof(
-            embeddings,
-            n_outliers=config.num_outliers,
-            n_jobs=config.sklearn_num_cpus
+            embeddings, n_outliers=config.num_outliers, n_jobs=config.sklearn_num_cpus
         )
         logger.info("Done with outlier searching")
 
         # A record of every trajectory length (they are all the same)
         traj_dict = dict(zip(ctx.dcd_files, itertools.cycle([ctx.h5_length])))
-    
+
         # Identify new outliers and add to queue
         creation_time = int(time.time())
         for outlier_ind, outlier_score in zip(outlier_inds, outlier_scores):
@@ -305,17 +312,13 @@ def main():
             # Rank the outlier PDBs according to their RMSD to reference state
             if config.extrinsic_outlier_score == "rmsd_to_reference_state":
                 h5_file = ctx.dcd_h5_map[dcd_filename]
-                with h5py.File(h5_file, 'r') as f:
-                    extrinsic_score = f['rmsd'][...][frame_index]
+                with h5py.File(h5_file, "r") as f:
+                    extrinsic_score = f["rmsd"][...][frame_index]
             else:
                 extrinsic_score = None
 
             ctx.put_outlier(
-                dcd_filename,
-                frame_index,
-                creation_time,
-                outlier_score,
-                extrinsic_score
+                dcd_filename, frame_index, creation_time, outlier_score, extrinsic_score
             )
 
         # Send outliers to MD simulation jobs
@@ -330,6 +333,7 @@ def main():
         if mins + secs / 60 >= config.walltime_min:
             ctx.halt_simulations()
             return
+
 
 if __name__ == "__main__":
     main()
