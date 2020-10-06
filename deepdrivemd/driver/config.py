@@ -15,9 +15,7 @@ class MDType(str, Enum):
 
 class LoggingConfig(BaseSettings):
     level: str = "DEBUG"
-    format: str = (
-        "'%(asctime)s|%(process)d|%(thread)d|%(levelname)8s|%(name)s:%(lineno)s] %(message)s'"
-    )
+    format: str = "'%(asctime)s|%(process)d|%(thread)d|%(levelname)8s|%(name)s:%(lineno)s] %(message)s'"
     datefmt: str = "%d-%b-%Y %H:%M:%S"
     buffer_num_records: int = 10
     flush_period: int = 30
@@ -27,10 +25,7 @@ class MDConfig(BaseSettings):
     """
     Auto-generates configuration file for run_openmm.py
     """
-
-    pdb_file: Path
     reference_pdb_file: Path
-    top_file: Optional[Path]
     local_run_dir: Path
     sim_type: MDType
     simulation_length_ns: int = 10
@@ -38,11 +33,13 @@ class MDConfig(BaseSettings):
     dt_ps: float = 0.002
     # Length of each simulation in nanoseconds if recursive mode is active
     reeval_time_ns: int = 10
+    frames_per_h5: int
     result_dir: Path
     h5_scp_path: Optional[str]
     omm_dir_prefix: str
     local_run_dir: Path = Path("/raid/scratch")
     input_dir: Path
+    initial_configs_dir: Path
     logging: LoggingConfig
 
     def dump_yaml(self, file):
@@ -55,7 +52,7 @@ class MDRunnerConfig(BaseSettings):
     """
 
     num_jobs: int
-    pdb_file: Path
+    initial_configs_dir: Path
     reference_pdb_file: Path
     top_file: Optional[Path]
     sim_type: MDType
@@ -69,6 +66,7 @@ class MDRunnerConfig(BaseSettings):
         'eval "$(/lus/theta-fs0/projects/RL-fold/msalim/miniconda3/bin/conda shell.bash hook)"',
         "conda activate /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm",
     ]
+    frames_per_h5: int
 
 
 class CVAEModelConfig(BaseSettings):
@@ -118,19 +116,28 @@ class CVAEModelConfig(BaseSettings):
 class ExtrinsicScore(str, Enum):
     rmsd_to_reference_state = "rmsd_to_reference_state"
 
+
 class OutlierDetectionConfig(BaseSettings):
     md_dir: Path  # MD simulation direction
     cvae_dir: Path  # CVAE model directory
     pdb_file: Path
     reference_pdb_file: Path
     num_outliers: int = 500
-    extrinsic_outlier_score: ExtrinsicScore = "rmsd_to_reference_state"
+    extrinsic_outlier_score: ExtrinsicScore = ExtrinsicScore.rmsd_to_reference_state
     model_params: CVAEModelConfig
     sklearn_num_cpus: int = 16
     logging: LoggingConfig
     local_scratch_dir: Path = Path("/raid/scratch")
     max_num_old_h5_files: int = 1000
+    # Run parameters
+    run_command: str = "python -m deepdrivemd.outlier.lof"
     walltime_min: int
+    num_nodes: int = 1
+    ranks_per_node: int = 1
+    gpus_per_node: int = 8
+
+    def dump_yaml(self, file):
+        yaml.dump(json.loads(self.json()), file)
 
 
 class GPUTrainingConfig(CVAEModelConfig):
@@ -147,6 +154,7 @@ class CS1TrainingConfig(CVAEModelConfig):
     global_path: Optional[Path]  # files_seen36.txt
     theta_gpu_path: Optional[Path]
     model_dir: Optional[Path]
+    num_frames_per_training: int = 16_000
 
     # Logging params are not supported on CS-1 and are disabled in run.py.
     metrics: bool = True
