@@ -62,6 +62,7 @@ def launch_md(
     # And files must not contain a double underscore
     initial_pdb = input_dir.joinpath(basename + "__" + system_name + ".pdb")
     shutil.copy(pdb_file, initial_pdb)
+    logger.info(f"Copied initial pdb {pdb_file} to  {initial_pdb}")
 
     run_config = MDConfig(
         initial_configs_dir=config.initial_configs_dir,

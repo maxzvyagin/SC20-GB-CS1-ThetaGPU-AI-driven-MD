@@ -62,8 +62,6 @@ def config_logging(filename, level, format, datefmt, buffer_num_records, flush_p
     )
 
     _logger = logging.getLogger(__name__)
-    handler = logging.StreamHandler()
-    _logger.addHandler(handler)
     def log_uncaught_exceptions(exctype, value, tb):
         _logger.error(
             f"Uncaught Exception {exctype}: {value}", exc_info=(exctype, value, tb)

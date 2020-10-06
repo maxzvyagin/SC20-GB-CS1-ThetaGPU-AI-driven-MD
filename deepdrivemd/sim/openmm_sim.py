@@ -281,6 +281,7 @@ def run_simulation(
 ):
 
     # Context to manage files and directory structure
+    logger.debug("Creating simulation context")
     ctx = SimulationContext(
         reference_pdb_file=reference_pdb_file,
         omm_dir_prefix=omm_dir_prefix,
@@ -290,23 +291,27 @@ def run_simulation(
         result_dir=result_dir,
         initial_configs_dir=initial_configs_dir,
     )
+    logger.debug("simulation context created")
 
     # Number of steps to run each simulation
     nsteps = int(sim_time / dt_ps)
     # Number of times to run each simulation before
     # restarting with different initial conditions
     niter = int(sim_time / reeval_time)
+    logger.info(f"nsteps={nsteps}, niter={niter}")
 
     # If a new PDB arrives before the simulation has run niter
     # times, the new PDB is favored and simulated once the old
     # simulation finishes it's final run.
 
+    logger.debug("Blocking until new PDB is received...")
     while not ctx.is_new_pdb():
         time.sleep(5)
 
     logger.info(f"Received initial PDB: {ctx.pdb_file}")
     while not ctx.halt_signal():
 
+        logger.debug(f"Configuring new simulation")
         sim = configure_simulation(
             ctx=ctx,
             gpu_index=gpu_index,
@@ -317,7 +322,7 @@ def run_simulation(
         )
 
         for _ in range(niter):
-            logger.info("START sim.step")
+            logger.info(f"START sim.step(nsteps={nsteps})")
             sim.step(nsteps)
             logger.info("END sim.step")
 
