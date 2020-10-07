@@ -40,6 +40,9 @@ def topk(a, k):
 
 def outlier_search_lof(embeddings, n_outliers, **kwargs):
 
+    logger.debug(
+        f"outlier_search_lof: len(embeddings)={len(embeddings)}, n_outliers={n_outliers}"
+    )
     # Handle NANs in embeddings
     embeddings = np.nan_to_num(embeddings, nan=0.0)
 
@@ -53,11 +56,16 @@ def outlier_search_lof(embeddings, n_outliers, **kwargs):
     # the kth position are partitioned but not sorted. Returns the indices
     # of the elements of left hand side of the parition i.e. the top k.
     outlier_inds = topk(clf.negative_outlier_factor_, k=n_outliers)
+    logger.debug(f"outlier_search_lof: outlier_inds = {outlier_inds}")
 
     outlier_scores = clf.negative_outlier_factor_[outlier_inds]
 
     # Only sorts an array of size n_outliers
     sort_inds = np.argsort(outlier_scores)
+    logger.debug(f"outlier_search_lof: sort_inds = {sort_inds}")
+
+    best_outliers = list(zip(outlier_inds[sort_inds], outlier_scores[sort_inds]))
+    logger.debug(f"n_outlier best outliers (sorted): {best_outliers}")
 
     # Returns n_outlier best outliers sorted from best to worst
     return outlier_inds[sort_inds], outlier_scores[sort_inds]
