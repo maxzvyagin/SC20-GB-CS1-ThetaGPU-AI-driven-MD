@@ -183,11 +183,11 @@ class OutlierDetectionContext:
 
     def update_model(self):
         """Gets most recent model weights."""
-        while self.cvae_weights_file is None:
+        while True:
             self.cvae_weights_file = tf.train.latest_checkpoint(self.cvae_dir)
             if self.cvae_weights_file is not None:
                 break
-            logger.debug("Outlier detection waiting for initial model checkpoint file")
+            logger.debug("Outlier detection waiting for model checkpoint file")
             time.sleep(10)
 
     @property

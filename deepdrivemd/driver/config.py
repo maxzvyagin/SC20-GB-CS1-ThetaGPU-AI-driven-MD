@@ -150,7 +150,8 @@ class OutlierDetectionRunConfig(OutlierDetectionUserConfig):
 
 
 class GPUTrainingUserConfig(BaseSettings):
-    pass
+    horovod_num_ranks: int = 1
+    horovod_num_ranks_per_node: int = 1
 
 
 class GPUTrainingRunConfig(CVAEModelConfig, GPUTrainingUserConfig):
