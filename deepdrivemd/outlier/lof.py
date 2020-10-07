@@ -47,7 +47,7 @@ class OutlierDetectionContext:
         md_dir: Path,
         cvae_dir: Path,
         max_num_old_h5_files: int,
-        model_params: CVAEModelConfig,
+        model_params: dict,
         **kwargs,
     ):
         self.md_dir = Path(md_dir).resolve()
@@ -204,8 +204,8 @@ class OutlierDetectionContext:
         # Write to local node storage
         write_to_tfrecords(
             files=new_h5_files,
-            initial_shape=self._model_params.h5_shape[1:],
-            final_shape=self._model_params.tfrecord_shape[1:],
+            initial_shape=self._model_params["h5_shape"][1:],
+            final_shape=self._model_params["tfrecord_shape"][1:],
             num_samples=self.h5_length,
             train_dir_path=self.tfrecords_dir,
             eval_dir_path=self.tfrecords_dir,
@@ -224,12 +224,12 @@ class OutlierDetectionContext:
 
         # Use files closure to get correct data sample
         def data_generator():
-            dtype = tf.float16 if self._model_params.mixed_precision else tf.float32
+            dtype = tf.float16 if self._model_params["mixed_precision"] else tf.float32
             list_files = tf.data.Dataset.list_files(files)
             dataset = tf.data.TFRecordDataset(list_files)
-            dataset = dataset.batch(self._model_params.batch_size, drop_remainder=False)
+            dataset = dataset.batch(self._model_params["batch_size"], drop_remainder=False)
             parse_sample = parse_function_record_predict(
-                dtype, self._model_params.tfrecord_shape, self._model_params.input_shape
+                dtype, self._model_params["tfrecord_shape"], self._model_params["input_shape"]
             )
             return dataset.map(parse_sample)
 
