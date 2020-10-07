@@ -42,6 +42,7 @@ if __name__ == "__main__":
     cfg = get_config()
     log_fname = os.path.join(cfg["result_dir"], cfg["omm_dir_prefix"] + ".log")
     config_logging(filename=log_fname, **cfg["logging"])
+    logger = logging.getLogger(__name__)
     simulation_kwargs = build_simulation_params(cfg)
     kw_str = ", ".join(f"{k}={v}" for k, v in simulation_kwargs.items())
     logger.debug(f"run_simulation({kw_str})")

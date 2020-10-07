@@ -27,7 +27,7 @@ from deepdrivemd.outlier.utils import find_frame
 
 import logging
 
-logger = logging.getLogger(__name__)
+logger = None
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.DEBUG)
 
 
@@ -265,9 +265,11 @@ def predict_from_cvae(
 
 
 def main():
+    global logger
     config = get_config()
     log_fname = config.md_dir.parent.joinpath("outlier_detection.log").as_posix()
     config_logging(filename=log_fname, **config.logging.dict())
+    logger = logging.getLogger('deepdrivemd.outlier.lof')
 
     logger.info(f"Starting outlier detection main()")
     logger.info(f"{config.dict()}")

@@ -21,7 +21,7 @@ from .cs1_manager import CS1Training
 from deepdrivemd import config_logging
 import logging
 
-logger = logging.getLogger(__name__)
+logger = None
 
 
 def launch_md(
@@ -166,6 +166,7 @@ class LocalTraining:
 
 
 def main(config_filename: str):
+    global logger
     start = time.time()
     config = read_yaml_config(config_filename)
 
@@ -180,6 +181,7 @@ def main(config_filename: str):
 
     log_fname = config.experiment_directory.joinpath("experiment_main.log").as_posix()
     config_logging(filename=log_fname, **config.logging.dict())
+    logger = logging.getLogger("deepdrivemd.driver.experiment_main")
 
     if config.cs1_training is not None:
         cs1_training = CS1Training(
