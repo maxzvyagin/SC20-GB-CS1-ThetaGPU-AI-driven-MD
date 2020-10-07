@@ -41,6 +41,6 @@ if __name__ == "__main__":
     pattern = line[line.find('"') + 1 : -2] + "*"
     file_list = list(Path(model_dir).glob(pattern)) + [
         Path(model_dir).joinpath("checkpoint")
-    ]
+    ] + [Path(model_dir).joinpath("performance.json")]
     target_dir = theta_gpu_path  # dir on theta
     transfer_files(file_list, target_dir)
