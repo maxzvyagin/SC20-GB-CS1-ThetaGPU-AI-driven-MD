@@ -126,7 +126,9 @@ class OutlierDetectionContext:
                 pass
 
     def generate_pdb_file(self, dcd_filename: Path, frame_index: int) -> Path:
-        logger.debug(f"generate_pdb_file({dcd_filename}, {frame_index}): {dcd_filename.parent.glob('*')}")
+        logger.debug(
+            f"generate_pdb_file({dcd_filename}, {frame_index}): {list(dcd_filename.parent.glob('*'))}"
+        )
         pdb_path = list(dcd_filename.parent.glob("*.pdb"))[0]
         system_name = pdb_path.with_suffix("").name.split("__")[1]
         # run_058/something.dcd -> something
