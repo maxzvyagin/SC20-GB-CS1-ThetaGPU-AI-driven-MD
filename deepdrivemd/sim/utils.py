@@ -18,7 +18,12 @@ def concat_h5(workdir, outfile):
     for h5_file in h5_files:
         with h5py.File(h5_file, "r") as f:
             for field in fields:
-                data[field] = f[field][...]
+                try:
+                    data[field] = f[field][...]
+                except KeyError:
+                    raise KeyError(
+                        f"Cannot access field {field}: available keys are {f.keys()}"
+                    )
 
     for field in data:
         data[field] = np.concatenate(data[field])
