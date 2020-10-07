@@ -178,6 +178,11 @@ class SimulationContext:
         self.top_file = None
         self.reference_pdb_file = reference_pdb_file
 
+        # Set fields in H5 file to write
+        self._fields = ["contact_map"]
+        if self.reference_pdb_file is not None:
+            self._fields.append("rmsd")
+
     @property
     def sim_prefix(self):
         """
@@ -239,7 +244,7 @@ class SimulationContext:
         result_h5 = self.h5_prefix + ".h5"
 
         logger.debug("Performing H5 concat...")
-        concat_h5(self.workdir, result_h5)
+        concat_h5(self.workdir, result_h5, self._fields)
         logger.debug("H5 concat finished")
 
         if self.scp_sender is not None:

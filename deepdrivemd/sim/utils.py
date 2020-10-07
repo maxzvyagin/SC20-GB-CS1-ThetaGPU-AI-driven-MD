@@ -7,15 +7,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def concat_h5(workdir, outfile):
+def concat_h5(workdir, outfile, fields=["contact_map"]):
     h5_files = glob.glob(os.path.join(workdir, "*.h5"))
     # Sort files by time of creation
     h5_files = list(sorted(h5_files, key=lambda file: os.path.getctime(file)))
 
     logger.debug(f"Collected {len(h5_files)} to concatenate")
 
-    # fields = ["contact_map", "rmsd"]
-    fields = ["contact_map"]
     data = {x: [] for x in fields}
 
     for h5_file in h5_files:
