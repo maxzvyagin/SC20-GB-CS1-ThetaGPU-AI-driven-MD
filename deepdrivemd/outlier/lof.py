@@ -323,7 +323,7 @@ def main():
         creation_time = int(time.time())
         for outlier_ind, outlier_score in zip(outlier_inds, outlier_scores):
             # find the location of outlier in it's DCD file
-            dcd_filename, frame_index = find_frame(traj_dict, outlier_ind)
+            frame_index, dcd_filename = find_frame(traj_dict, outlier_ind)
 
             # Rank the outlier PDBs according to their RMSD to reference state
             if config.extrinsic_outlier_score == "rmsd_to_reference_state":
