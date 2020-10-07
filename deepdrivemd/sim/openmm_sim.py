@@ -20,12 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 def configure_amber_implicit(
-    pdb_file,
-    top_file,
-    dt_ps,
-    temperature_kelvin,
-    platform,
-    platform_properties
+    pdb_file, top_file, dt_ps, temperature_kelvin, platform, platform_properties
 ):
 
     # Configure system
@@ -60,12 +55,7 @@ def configure_amber_implicit(
 
 
 def configure_amber_explicit(
-    pdb_file, 
-    top_file,
-    dt_ps,
-    temperature_kelvin,
-    platform,
-    platform_properties
+    pdb_file, top_file, dt_ps, temperature_kelvin, platform, platform_properties
 ):
 
     # Configure system
@@ -108,9 +98,12 @@ def configure_simulation(
 
     # Select implicit or explicit solvent
     args = (
-        ctx.pdb_file, ctx.top_file, dt_ps,
-        temperature_kelvin, platform,
-        platform_properties
+        ctx.pdb_file,
+        ctx.top_file,
+        dt_ps,
+        temperature_kelvin,
+        platform,
+        platform_properties,
     )
     if sim_type == "implicit":
         sim, coords = configure_amber_implicit(*args)
@@ -243,7 +236,7 @@ class SimulationContext:
             logger.debug(f"No new PDB yet")
             return False
 
-        self.new_context(copy=self.pdb_file is not None)
+        self.new_context(copy=self.pdb_file is not None, have_new_pdb=True)
 
         with FileLock(pdb_file):
             self.pdb_file = shutil.move(pdb_file.as_posix(), self.workdir)
@@ -272,7 +265,7 @@ class SimulationContext:
         cleanup_h5(self.workdir, keep=result_h5)
         self._cp_sender.send(self.workdir, touch_done_file=True)
 
-    def new_context(self, copy=True):
+    def new_context(self, copy=True, have_new_pdb=False):
         # Backup previous context
         if copy:
             self.copy_context()
@@ -282,6 +275,10 @@ class SimulationContext:
 
         # Make new omm directory
         os.makedirs(self.workdir)
+
+        # Copy previous pdb to current workdir if we didn't get a new one
+        if not have_new_pdb:
+            self.pdb_file = shutil.copy(self.pdb_file.as_posix(), self.workdir)
 
     def halt_signal(self):
         return "halt" in glob.glob(self._input_dir)
