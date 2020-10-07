@@ -160,7 +160,9 @@ class OutlierDetectionContext:
             logger.debug(f"shutil.move wrote {target.name} in {elapsed:.2f} seconds")
 
     def rescan_h5_dcd(self):
-        while not self.h5_files:
+        # We *always* want to scan at least once
+        # But on the first pass, block until at least some h5 files appear
+        while True:
             for done_path in self.md_dir.glob("**/DONE"):
                 h5 = list(done_path.parent.glob("*.h5"))[0]
                 dcd = list(done_path.parent.glob("*.dcd"))[0]
