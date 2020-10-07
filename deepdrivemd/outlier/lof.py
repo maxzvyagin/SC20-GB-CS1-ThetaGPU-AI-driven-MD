@@ -121,11 +121,12 @@ class OutlierDetectionContext:
         # Blocks until all PDBs are sent
         md_dirs = self.get_open_md_input_slots()
         logger.info(f"Sending new outlier pdbs to {len(md_dirs)} dirs")
-        with ThreadPoolExecutor() as ex:
+        with ThreadPoolExecutor(max_workers=1) as ex:
             for _ in ex.map(self.dispatch_next_outlier, md_dirs):
                 pass
 
     def generate_pdb_file(self, dcd_filename: Path, frame_index: int) -> Path:
+        logger.debug(f"generate_pdb_file({dcd_filename}, {frame_index}): {dcd_filename.parent.glob('*')}")
         pdb_path = list(dcd_filename.parent.glob("*.pdb"))[0]
         system_name = pdb_path.with_suffix("").name.split("__")[1]
         # run_058/something.dcd -> something
