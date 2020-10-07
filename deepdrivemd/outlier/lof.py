@@ -15,7 +15,7 @@ import MDAnalysis as mda
 
 from deepdrivemd import config_logging
 from deepdrivemd.util import FileLock
-from deepdrivemd.driver.config import OutlierDetectionConfig, CVAEModelConfig
+from deepdrivemd.driver.config import OutlierDetectionRunConfig, CVAEModelConfig
 
 from deepdrivemd.models.symmetric_cvae.utils import write_to_tfrecords
 from deepdrivemd.models.symmetric_cvae.data import parse_function_record_predict
@@ -36,7 +36,7 @@ def get_config():
     config_filename = parser.parse_args().config
     with open(config_filename) as fp:
         dict_config = yaml.safe_load(fp)
-    return OutlierDetectionConfig(**dict_config)
+    return OutlierDetectionRunConfig(**dict_config)
 
 
 class OutlierDetectionContext:

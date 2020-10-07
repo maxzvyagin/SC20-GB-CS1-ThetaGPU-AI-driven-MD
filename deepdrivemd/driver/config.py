@@ -67,6 +67,7 @@ class MDRunnerConfig(BaseSettings):
     md_environ_setup: List[str] = [
         'eval "$(/lus/theta-fs0/projects/RL-fold/msalim/miniconda3/bin/conda shell.bash hook)"',
         "conda activate /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm",
+        "export PYTHONPATH=/lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD:$PYTHONPATH",
     ]
 
     @validator("reeval_time_ns")
@@ -132,7 +133,11 @@ class OutlierDetectionUserConfig(BaseSettings):
     local_scratch_dir: Path = Path("/raid/scratch")
     max_num_old_h5_files: int = 1000
     # Run parameters
-    run_command: str = "python -m deepdrivemd.outlier.lof"
+    run_command: str = (
+        "singularity run -B /lus:/lus:rw --nv "
+        "/lus/theta-fs0/projects/RL-fold/msalim/tensorflow_20.09-tf1-py3.sif "
+        "/lus/theta-fs0/projects/RL-fold/msalim/tf1-ngc-env/bin/python -m deepdrivemd.outlier.lof "
+    )
     environ_setup: List[str] = []
     num_nodes: int = 1
     ranks_per_node: int = 1
@@ -180,7 +185,7 @@ class CS1TrainingRunConfig(CS1TrainingUserConfig, CVAEModelConfig):
     sim_data_dir: Path
     data_dir: Path
     eval_data_dir: Path
-    global_path: Path # files_seen36.txt
+    global_path: Path  # files_seen36.txt
     theta_gpu_path: Path
     model_dir: Path
 
