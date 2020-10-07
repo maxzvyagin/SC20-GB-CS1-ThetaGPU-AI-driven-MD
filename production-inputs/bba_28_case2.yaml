@@ -15,7 +15,7 @@ md_runner:
     temperature_kelvin: 310.0
     reference_pdb_file: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/1FME/1FME-folded.pdb
     report_interval_ps: 50.0
-    sim_type: explicit
+    sim_type: implicit
     simulation_length_ns: 10.0
 
 outlier_detection:
