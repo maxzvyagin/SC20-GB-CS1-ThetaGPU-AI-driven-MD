@@ -68,7 +68,7 @@ class LocalCopySender(CopySender):
 
         if touch_done_file:
             # TODO: Socket for confirming transfer done would be better
-            done_file = Path(self.target).joinpath(path.name).joinpath("DONE")
+            done_file = Path(self.target).joinpath(Path(path).name).joinpath("DONE")
             args += f" && touch {done_file}"
 
         logger.debug(f"Starting transfer: {args}")
