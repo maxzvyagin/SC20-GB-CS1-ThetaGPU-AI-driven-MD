@@ -317,6 +317,9 @@ def main():
         logger.info("Done with outlier searching")
 
         # A record of every trajectory length (they are all the same)
+        logger.debug("Building traj_dict:")
+        logger.debug(f"ctx.dcd_files = {ctx.dcd_files}")
+        logger.debug(f"ctx.h5_length = {ctx.h5_length}")
         traj_dict = dict(zip(ctx.dcd_files, itertools.cycle([ctx.h5_length])))
 
         # Identify new outliers and add to queue
