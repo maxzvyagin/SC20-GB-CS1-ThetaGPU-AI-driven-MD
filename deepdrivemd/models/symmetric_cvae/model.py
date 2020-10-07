@@ -4,13 +4,14 @@ Covid CVAE model.
 """
 import tensorflow as tf
 import numpy as np
-from layers import build_model
-from optimizer import get_optimizer
+from .layers import build_model
+from .optimizer import get_optimizer
 
 ################################################################################
 ## MODEL FUNCTION DEFINITION
 ################################################################################
 _REDUCTION_TYPES = ["sum", "mean"]
+
 
 def model_fn(features, labels, mode, params):
     targets = labels
@@ -19,11 +20,10 @@ def model_fn(features, labels, mode, params):
 
     mixed_precision = params["mixed_precision"]
     fp_loss = params["full_precision_loss"]
-    recon_loss_red_type = params[
-        "reconstruction_loss_reduction_type"
-    ]
-    assert recon_loss_red_type in _REDUCTION_TYPES, \
-        f"invalid reconstruction loss reduction type: {recon_loss_red_type}"
+    recon_loss_red_type = params["reconstruction_loss_reduction_type"]
+    assert (
+        recon_loss_red_type in _REDUCTION_TYPES
+    ), f"invalid reconstruction loss reduction type: {recon_loss_red_type}"
     model_random_seed = params["model_random_seed"]
     loss_scale = params["loss_scale"]
     tf.compat.v1.set_random_seed(model_random_seed)
@@ -34,22 +34,17 @@ def model_fn(features, labels, mode, params):
     global_step = tf.compat.v1.train.get_global_step()
 
     if mixed_precision:
-        tf.keras.mixed_precision.experimental.set_policy('infer_float32_vars')
+        tf.keras.mixed_precision.experimental.set_policy("infer_float32_vars")
 
     # Model output
     outputs, kl_loss, embedding_output = build_model(features, params)
-    tf.compat.v1.logging.info(
-        f"Model Outputs Shape: {outputs.get_shape()}"
-    )
-    tf.compat.v1.logging.info(
-        f"Targets Shape: {targets.get_shape()}"
-    )
+    tf.compat.v1.logging.info(f"Model Outputs Shape: {outputs.get_shape()}")
+    tf.compat.v1.logging.info(f"Targets Shape: {targets.get_shape()}")
 
     if mode == tf.estimator.ModeKeys.PREDICT:
         return tf.estimator.EstimatorSpec(
-            mode=mode,
-            predictions={"embeddings": embedding_output}
-    )
+            mode=mode, predictions={"embeddings": embedding_output}
+        )
 
     # Losses
     if mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
@@ -63,7 +58,7 @@ def model_fn(features, labels, mode, params):
             targets,
             outputs,
             loss_collection=None,
-            reduction=tf.compat.v1.losses.Reduction.NONE
+            reduction=tf.compat.v1.losses.Reduction.NONE,
         )
         if recon_loss_red_type == "sum":
             # Sum across elements
@@ -94,19 +89,14 @@ def model_fn(features, labels, mode, params):
 
         # Apply loss scaling
         scaled_grads_vars = optimizer.compute_gradients(
-            loss * loss_scale,
-            tf.compat.v1.trainable_variables()
+            loss * loss_scale, tf.compat.v1.trainable_variables()
         )
-        unscaled_grads_vars = [
-            (g / loss_scale, v)
-            for g,v in scaled_grads_vars
-        ]
+        unscaled_grads_vars = [(g / loss_scale, v) for g, v in scaled_grads_vars]
 
         # Minimize the loss
         train_op = optimizer.apply_gradients(
             unscaled_grads_vars, global_step=global_step
         )
-
 
     return tf.estimator.EstimatorSpec(
         mode=mode,
