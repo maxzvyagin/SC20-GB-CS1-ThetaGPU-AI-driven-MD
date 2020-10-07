@@ -1,8 +1,8 @@
-experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/test-3
+experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/test-full
 walltime_min: 120
 
 md_runner:
-    frames_per_h5: 10
+    frames_per_h5: 100
     initial_configs_dir: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/1FME
     local_run_dir: /raid/scratch
     md_environ_setup:
@@ -29,7 +29,21 @@ outlier_detection:
     run_command: "singularity run -B /lus:/lus:rw -B /raid:/raid:rw --nv /lus/theta-fs0/projects/RL-fold/msalim/tensorflow_20.09-tf1-py3.sif /lus/theta-fs0/projects/RL-fold/msalim/tf1-ngc-env/bin/python -m deepdrivemd.outlier.lof"
     sklearn_num_cpus: 16
 
-cs1_training: null
+cs1_training: # start with 20480 and supplement with 20480 at a time (4096 eval, 16384 train)
+    hostname: medulla1
+    medulla_experiment_path: /data/shared/msalim/debug-full
+    initial_h5_transfer_dir: null
+    mode: train
+    num_frames_per_training: 800 # 160 files (128 per file)
+    run_script: /data/shared/vishal/ANL-shared/cvae_gb/run_mixed.sh
+    runconfig_params:
+        keep_checkpoint_max: 1
+        log_step_count_steps: 10
+        save_checkpoints_steps: 10
+        save_summary_steps: 10
+    train_steps: 10 # 100 epochs, 1 epoch is 32768 samples->64 steps
+    eval_steps: 1 # 512*16=8192 samples
+
 
 cvae_model:
     metrics: False
@@ -88,7 +102,7 @@ cvae_model:
         - 32
     itemsize: 1
     kl_loss_reduction_type: sum
-    last_n_files: 1
+    last_n_files: 4
     last_n_files_eval: 1
     latent_ndim: 10
     learning_rate: 2.0e-05
