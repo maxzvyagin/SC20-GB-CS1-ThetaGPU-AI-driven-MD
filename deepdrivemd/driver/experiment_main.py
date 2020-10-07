@@ -137,12 +137,15 @@ def dispatch_od_run(
         num_nodes=user_config.num_nodes,
         gpus_per_node=user_config.gpus_per_node,
     )
+    outlier_results_dir = experiment_dir.joinpath("outlier_runs")
+    outlier_results_dir.mkdir()
     outlier_cfg = OutlierDetectionRunConfig(
         logging=logging_cfg,
         model_params=model_params,
         md_dir=md_dir,
         cvae_dir=cvae_dir,
         walltime_min=walltime_min,
+        outlier_results_dir=outlier_results_dir,
         **user_config.dict(),
     )
 

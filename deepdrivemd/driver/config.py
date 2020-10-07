@@ -141,6 +141,7 @@ class OutlierDetectionUserConfig(BaseSettings):
 
 
 class OutlierDetectionRunConfig(OutlierDetectionUserConfig):
+    outlier_results_dir: Path
     logging: LoggingConfig
     model_params: CVAEModelConfig
     md_dir: Path
