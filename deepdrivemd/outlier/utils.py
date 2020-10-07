@@ -1,14 +1,20 @@
 import numpy as np
 from sklearn.neighbors import LocalOutlierFactor
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def find_frame(traj_dict, frame_number=0):
     local_frame = frame_number
-    for key in sorted(traj_dict):
-        if local_frame - traj_dict[key] < 0:
-            return local_frame, key
+    logger.debug(f"find_frame(traj_dict, frame_number={frame_number})")
+
+    for dcd_file, num_frames in sorted(traj_dict.items()):
+        logger.debug(f"find_frame: traj_dict[{dcd_file}] = {num_frames}")
+        if local_frame - num_frames < 0:
+            return local_frame, dcd_file
         else:
-            local_frame -= traj_dict[key]
+            local_frame -= num_frames
     total_num_frames = sum(np.array(list(traj_dict.values())).astype(int))
     raise Exception(
         f"frame {frame_number} should not exceed the total number of frames, {total_num_frames}"
