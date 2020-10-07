@@ -27,7 +27,7 @@ outlier_detection:
     num_nodes: 1
     num_outliers: 500
     ranks_per_node: 1
-    run_command: "singularity run -B /lus:/lus:rw --nv /lus/theta-fs0/projects/RL-fold/msalim/tensorflow_20.09-tf1-py3.sif /lus/theta-fs0/projects/RL-fold/msalim/tf1-ngc-env/bin/python -m deepdrivemd.outlier.lof"
+    run_command: "singularity run -B /lus:/lus:rw -B /raid:/raid:rw --nv /lus/theta-fs0/projects/RL-fold/msalim/tensorflow_20.09-tf1-py3.sif /lus/theta-fs0/projects/RL-fold/msalim/tf1-ngc-env/bin/python -m deepdrivemd.outlier.lof"
     sklearn_num_cpus: 16
 
 cs1_training: # start with 10240 and supplement with 10240 at a time (2048 eval, 8192 train)
