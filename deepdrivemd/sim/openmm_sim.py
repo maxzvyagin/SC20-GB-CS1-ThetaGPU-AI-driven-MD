@@ -205,7 +205,7 @@ class SimulationContext:
         """
         run0004_0001
         """
-        return f"{self._omm_dir_prefix}_{self._file_id:04d}"
+        return f"{self._omm_dir_prefix}_{self._file_id:06d}"
 
     @property
     def workdir(self):
