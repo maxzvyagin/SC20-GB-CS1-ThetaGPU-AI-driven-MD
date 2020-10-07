@@ -37,6 +37,7 @@ class MDConfig(BaseSettings):
     simulation_length_ns: float = 10
     report_interval_ps: float = 50
     dt_ps: float = 0.002
+    temperature_kelvin: float = 310.0
     # Length of each simulation in nanoseconds if recursive mode is active
     reeval_time_ns: float = 10
     frames_per_h5: int
@@ -59,6 +60,7 @@ class MDRunnerConfig(BaseSettings):
     reference_pdb_file: Path
     sim_type: MDType
     frames_per_h5: int = 1024
+    temperature_kelvin: float = 310.0
     simulation_length_ns: float = 10
     report_interval_ps: float = 50
     reeval_time_ns: float = 2

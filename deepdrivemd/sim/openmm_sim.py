@@ -19,7 +19,14 @@ from deepdrivemd.util import LocalCopySender, RemoteCopySender
 logger = logging.getLogger(__name__)
 
 
-def configure_amber_implicit(pdb_file, top_file, dt_ps, platform, platform_properties):
+def configure_amber_implicit(
+    pdb_file,
+    top_file,
+    dt_ps,
+    temperature_kelvin,
+    platform,
+    platform_properties
+):
 
     # Configure system
     if top_file:
@@ -41,7 +48,7 @@ def configure_amber_implicit(pdb_file, top_file, dt_ps, platform, platform_prope
         )
 
     # Congfigure integrator
-    integrator = omm.LangevinIntegrator(300 * u.kelvin, 91.0 / u.picosecond, dt_ps)
+    integrator = omm.LangevinIntegrator(temperature_kelvin, 91.0 / u.picosecond, dt_ps)
     integrator.setConstraintTolerance(0.00001)
 
     sim = app.Simulation(
@@ -52,7 +59,14 @@ def configure_amber_implicit(pdb_file, top_file, dt_ps, platform, platform_prope
     return sim, pdb
 
 
-def configure_amber_explicit(pdb_file, top_file, dt_ps, platform, platform_properties):
+def configure_amber_explicit(
+    pdb_file, 
+    top_file,
+    dt_ps,
+    temperature_kelvin,
+    platform,
+    platform_properties
+):
 
     # Configure system
     top = pmd.load_file(top_file, xyz=pdb_file)
@@ -63,8 +77,8 @@ def configure_amber_explicit(pdb_file, top_file, dt_ps, platform, platform_prope
     )
 
     # Congfigure integrator
-    integrator = omm.LangevinIntegrator(300 * u.kelvin, 1 / u.picosecond, dt_ps)
-    system.addForce(omm.MonteCarloBarostat(1 * u.bar, 300 * u.kelvin))
+    integrator = omm.LangevinIntegrator(temperature_kelvin, 1 / u.picosecond, dt_ps)
+    system.addForce(omm.MonteCarloBarostat(1 * u.bar, temperature_kelvin))
 
     sim = app.Simulation(
         top.topology, system, integrator, platform, platform_properties
@@ -79,6 +93,7 @@ def configure_simulation(
     sim_type="implicit",
     gpu_index=0,
     dt_ps=0.002 * u.picoseconds,
+    temperature_kelvin=300 * u.kelvin,
     report_interval_ps=10 * u.picoseconds,
     frames_per_h5=2,
 ):
@@ -92,7 +107,11 @@ def configure_simulation(
         platform_properties = {"DeviceIndex": str(gpu_index)}
 
     # Select implicit or explicit solvent
-    args = ctx.pdb_file, ctx.top_file, dt_ps, platform, platform_properties
+    args = (
+        ctx.pdb_file, ctx.top_file, dt_ps,
+        temperature_kelvin, platform,
+        platform_properties
+    )
     if sim_type == "implicit":
         sim, coords = configure_amber_implicit(*args)
     else:
@@ -279,6 +298,7 @@ def run_simulation(
     sim_time,
     reeval_time,
     dt_ps,
+    temperature_kelvin,
     h5_scp_path,
     result_dir,
     input_dir,
@@ -322,6 +342,7 @@ def run_simulation(
             gpu_index=gpu_index,
             sim_type=sim_type,
             dt_ps=dt_ps,
+            temperature_kelvin=temperature_kelvin,
             report_interval_ps=report_interval_ps,
             frames_per_h5=frames_per_h5,
         )

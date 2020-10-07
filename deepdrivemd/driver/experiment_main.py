@@ -58,6 +58,7 @@ def launch_md(
         initial_configs_dir=config.initial_configs_dir,
         reference_pdb_file=config.reference_pdb_file,
         sim_type=config.sim_type,
+        temperature_kelvin=config.temperature_kelvin,
         simulation_length_ns=config.simulation_length_ns,
         report_interval_ps=config.report_interval_ps,
         reeval_time_ns=config.reeval_time_ns,
