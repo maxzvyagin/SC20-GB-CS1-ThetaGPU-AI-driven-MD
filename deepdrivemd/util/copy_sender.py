@@ -97,6 +97,7 @@ class LocalCopySender(CopySender):
             logger.warning("Could not parse cp timing from stdout")
             return
         else:
+            time = max(time, 1e-32)
             rate = sent_bytes / time / 1e6
             perf = {
                 "sent_bytes": sent_bytes,
@@ -146,6 +147,7 @@ class RemoteCopySender(CopySender):
             logger.warning("Could not parse scp performance from stdout")
             return
         else:
+            time = max(time, 1e-32)
             rate = sent_bytes / time / 1e6
             perf = {
                 "sent_bytes": sent_bytes,
