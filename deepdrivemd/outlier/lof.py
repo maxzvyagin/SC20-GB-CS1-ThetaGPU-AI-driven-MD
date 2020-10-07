@@ -17,7 +17,10 @@ from deepdrivemd import config_logging
 from deepdrivemd.util import FileLock
 from deepdrivemd.driver.config import OutlierDetectionRunConfig, CVAEModelConfig
 
-from deepdrivemd.models.symmetric_cvae.utils import write_to_tfrecords
+from deepdrivemd.models.symmetric_cvae.utils import (
+    write_to_tfrecords,
+    write_single_tfrecord,
+)
 from deepdrivemd.models.symmetric_cvae.data import parse_function_record_predict
 from deepdrivemd.models.symmetric_cvae.model import model_fn
 
@@ -55,6 +58,7 @@ class OutlierDetectionContext:
 
         self._local_scratch_dir = local_scratch_dir
         self.tfrecords_dir = local_scratch_dir.joinpath("tfrecords")
+        self.tfrecords_dir.mkdir(exist_ok=True)
         self._seen_h5_files_set = set()
 
         self.cvae_weights_file = None
@@ -75,10 +79,6 @@ class OutlierDetectionContext:
     @property
     def dcd_files(self):
         return list(self._h5_dcd_map.values())
-
-    @property
-    def h5_dcd_file_pairs(self):
-        return list(self._h5_dcd_map.items())
 
     @property
     def md_input_dirs(self):
@@ -166,8 +166,9 @@ class OutlierDetectionContext:
             for done_path in self.md_dir.glob("**/DONE"):
                 h5 = list(done_path.parent.glob("*.h5"))[0]
                 dcd = list(done_path.parent.glob("*.dcd"))[0]
-                self._h5_dcd_map[h5] = dcd
-                self.dcd_h5_map[dcd] = h5
+                if h5 not in self.h5_files:
+                    self._h5_dcd_map[h5] = dcd
+                    self.dcd_h5_map[dcd] = h5
 
             if self.h5_files:
                 return
@@ -200,38 +201,41 @@ class OutlierDetectionContext:
             stride = int(len(self._seen_h5_files_set) // num_h5s)
         else:
             stride = 1
+
         old_h5_indices = list(range(0, len(self._seen_h5_files_set), stride))
         new_h5_files = list(set(self.h5_files).difference(self._seen_h5_files_set))
-        self._seen_h5_files_set.update(new_h5_files)
-        # Write to local node storage
-        write_to_tfrecords(
-            files=new_h5_files,
-            initial_shape=self._model_params["h5_shape"][1:],
-            final_shape=self._model_params["tfrecord_shape"][1:],
-            num_samples=self.h5_length,
-            train_dir_path=self.tfrecords_dir,
-            eval_dir_path=self.tfrecords_dir,
-            fraction=0.0,
+        new_h5_indices = list(
+            range(len(self.h5_files) - len(new_h5_files), len(self.h5_files))
         )
 
-        # Get all files sorted by creation index
-        files = sorted(
-            Path(self.tfrecords_dir).glob("*.tfrecords"),
-            key=lambda path: path.name.split("_")[1],
-        )
-
-        # Get even sample of previosuly seen data and all of the new data
-        old_files = [files[i] for i in old_h5_indices]
-        files = old_files + files[-1 * len(new_h5_files) :]
+        indices = old_h5_indices + new_h5_indices
+        all_dcd_files = (
+            self.dcd_files
+        )  # self.dcd_files is @property; don't put in listcomp!
+        dcd_files = [all_dcd_files[i] for i in indices]
 
         # tf.data.Dataset.list_files expects a list of strings, not pathlib.Path objects!
         # as_posix() converts a Path to a string
-        files = [f.as_posix() for f in files]
+        tfrecord_files = [
+            self.tfrecords_dir.joinpath(f.with_suffix(".tfrecords").name).as_posix()
+            for f in dcd_files
+        ]
+
+        self._seen_h5_files_set.update(new_h5_files)
+
+        # Write to local node storage
+        for h5_file in new_h5_files:
+            write_single_tfrecord(
+                h5_file=h5_file,
+                initial_shape=self._model_params["h5_shape"][1:],
+                final_shape=self._model_params["tfrecord_shape"][1:],
+                tfrecord_dir=self.tfrecords_dir,
+            )
 
         # Use files closure to get correct data sample
         def data_generator():
             dtype = tf.float16 if self._model_params["mixed_precision"] else tf.float32
-            list_files = tf.data.Dataset.list_files(files)
+            list_files = tf.data.Dataset.list_files(tfrecord_files)
             dataset = tf.data.TFRecordDataset(list_files)
 
             # TODO: We want drop_remainder=False but this needs to be rewritten:
@@ -245,7 +249,7 @@ class OutlierDetectionContext:
             )
             return dataset.map(parse_sample)
 
-        return data_generator
+        return (dcd_files, data_generator)
 
     def halt_simulations(self):
         for md_dir in self.md_input_dirs:
@@ -292,7 +296,7 @@ def main():
     while True:
         # Will block until the first H5 files are received
         ctx.rescan_h5_dcd()
-        data_generator = ctx.update_dataset()
+        dcd_files, data_generator = ctx.update_dataset()
 
         # NOTE: It's up to the ML service to do model selection;
         # we're assuming the latest cvae weights file has the best model
@@ -320,9 +324,9 @@ def main():
 
         # A record of every trajectory length (they are all the same)
         logger.debug("Building traj_dict:")
-        logger.debug(f"ctx.dcd_files = {ctx.dcd_files}")
+        logger.debug(f"dcd_files = {dcd_files}")
         logger.debug(f"ctx.h5_length = {ctx.h5_length}")
-        traj_dict = dict(zip(ctx.dcd_files, itertools.cycle([ctx.h5_length])))
+        traj_dict = dict(zip(dcd_files, itertools.cycle([ctx.h5_length])))
 
         # Identify new outliers and add to queue
         creation_time = int(time.time())

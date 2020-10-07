@@ -1,4 +1,5 @@
 import tensorflow as tf
+from pathlib import Path
 import h5py
 import numpy as np
 from scipy.sparse import coo_matrix
@@ -61,6 +62,32 @@ def write_record(contact_maps, record_name):
             writer.write(example_to_string)
 
 
+def write_single_tfrecord(h5_file, initial_shape, final_shape, tfrecord_dir):
+    """
+    Special-case: 1-to-1 mapping of h5_file to .tfrecords for lof.py
+    Not needed on CS1
+    """
+    tfrecord_dir = Path(tfrecord_dir)
+    record_name = tfrecord_dir.joinpath(Path(h5_file).with_suffix(".tfrecords").name).as_posix()
+    contact_maps = []
+    with h5py.File(h5_file, "r", libver="latest", swmr=False) as f:
+        for j, raw_indices in enumerate(f["contact_map"]):
+            indices = raw_indices.reshape((2, -1)).astype("int16")
+            # Contact matrices are binary so we don't need to store the values
+            # in HDF5 format. Instead we create a vector of 1s on the fly.
+            values = np.ones(indices.shape[1]).astype("byte")
+            # Construct COO formated sparse matrix
+            contact_map = coo_matrix(
+                (values, (indices[0], indices[1])), shape=initial_shape
+            ).todense()
+            contact_map = np.array(
+                contact_map[: final_shape[0], : final_shape[1]], dtype=np.float16
+            )
+            contact_maps.append(contact_map)
+        write_record(contact_maps, record_name)
+        logger.debug(f"Wrote TFRecord: {record_name}")
+
+
 def write_to_tfrecords(
     files,
     initial_shape,
@@ -93,7 +120,8 @@ def write_to_tfrecords(
                 if len(contact_maps) == num_samples:
                     record_counter += 1
                     record_name = os.path.join(
-                        train_dir_path, f"tfrecord_{i}_sample{record_counter}.tfrecords"
+                        train_dir_path,
+                        f"tfrecord_{i}_sample{record_counter}.tfrecords",
                     )
                     logger.debug(f"Wrote TFRecord: {record_name}")
                     write_record(contact_maps, record_name)
