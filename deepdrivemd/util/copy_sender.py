@@ -75,6 +75,7 @@ class LocalCopySender(CopySender):
         p = subprocess.Popen(
             args,
             shell=True,
+            executable="/bin/bash",
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             encoding="utf-8",
@@ -122,6 +123,7 @@ class RemoteCopySender(CopySender):
         p = subprocess.Popen(
             args,
             shell=True,
+            executable="/bin/bash",
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             encoding="utf-8",
