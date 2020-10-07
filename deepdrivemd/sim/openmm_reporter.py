@@ -1,11 +1,12 @@
 import uuid
 import h5py
-import subprocess
+import logging
 import numpy as np
 import simtk.unit as u
 import MDAnalysis as mda
 from MDAnalysis.analysis import distances
 
+logger = logging.getLogger(__name__)
 
 def write_contact_map_h5(file_name, rows, cols):
 
@@ -94,6 +95,7 @@ class SparseContactMapReporter:
         if self._num_frames == self._batch_size:
             file_name = f"{self._base_name}_{self._file_idx:05d}_{uuid.uuid4()}.h5"
             write_contact_map_h5(file_name, self._rows, self._cols)
+            logger.debug(f"H5 file written with {len(self._rows)} frames.")
             self._init_batch()
             self._file_idx += 1
 
