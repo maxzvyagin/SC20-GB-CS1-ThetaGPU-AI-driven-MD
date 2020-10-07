@@ -342,7 +342,7 @@ def main():
         logger.info("Finished sending new outliers")
 
         # Compute elapsed time
-        mins, secs = divmod(time.time() - start_time, 60)
+        mins, secs = divmod(int(time.time() - start_time), 60)
         logger.info(f"Outlier detection elapsed time {mins:02d}:{secs:02d} done")
 
         # If elapsed time is greater than specified walltime then stop
