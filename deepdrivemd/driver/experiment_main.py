@@ -150,14 +150,13 @@ def dispatch_od_run(
     with open(cfg_path, "w") as fp:
         outlier_cfg.dump_yaml(fp)
     MPIRun.set_preamble_commands(*user_config.environ_setup)
-    # od_run = MPIRun(
-    #    config.outlier_detection.run_command + f" -c {cfg_path}",
-    #    node_list=nodes,
-    #    ranks_per_node=1,
-    #    gpu_ids=gpu_ids,
-    #    output_file=cfg_path.with_suffix(".out"),
-    # )
-    od_run = None
+    od_run = MPIRun(
+        outlier_cfg.run_command + f" -c {cfg_path}",
+        node_list=nodes,
+        ranks_per_node=1,
+        gpu_ids=gpu_ids,
+        output_file=cfg_path.with_suffix(".out"),
+    )
     return od_run
 
 
