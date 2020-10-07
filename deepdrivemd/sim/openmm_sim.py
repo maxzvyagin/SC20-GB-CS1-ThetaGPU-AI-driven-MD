@@ -278,7 +278,7 @@ class SimulationContext:
 
         # Copy previous pdb to current workdir if we didn't get a new one
         if not have_new_pdb:
-            self.pdb_file = shutil.copy(self.pdb_file.as_posix(), self.workdir)
+            self.pdb_file = shutil.copy(str(self.pdb_file), self.workdir)
 
     def halt_signal(self):
         return "halt" in glob.glob(self._input_dir)
