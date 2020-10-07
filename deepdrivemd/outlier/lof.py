@@ -28,6 +28,7 @@ from deepdrivemd.outlier.utils import find_frame
 import logging
 
 logger = logging.getLogger(__name__)
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.DEBUG)
 
 
 def get_config():
@@ -193,7 +194,10 @@ class OutlierDetectionContext:
 
     def update_dataset(self):
         num_h5s = min(len(self._seen_h5_files_set), self.max_num_old_h5_files)
-        stride = int(len(self._seen_h5_files_set) // num_h5s)
+        if num_h5s > 0:
+            stride = int(len(self._seen_h5_files_set) // num_h5s)
+        else:
+            stride = 1
         old_h5_indices = list(range(0, len(self._seen_h5_files_set), stride))
         new_h5_files = list(set(self.h5_files).difference(self._seen_h5_files_set))
         self._seen_h5_files_set.update(new_h5_files)
@@ -262,7 +266,7 @@ def predict_from_cvae(
 
 def main():
     config = get_config()
-    log_fname = config.md_dir.joinpath("outlier_detection.log").as_posix()
+    log_fname = config.md_dir.parent.joinpath("outlier_detection.log").as_posix()
     config_logging(filename=log_fname, **config.logging.dict())
 
     logger.info(f"Starting outlier detection main()")
