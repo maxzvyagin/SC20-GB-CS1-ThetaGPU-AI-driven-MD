@@ -8,6 +8,7 @@ from MDAnalysis.analysis import distances, rms
 
 logger = logging.getLogger(__name__)
 
+
 def write_contact_map_h5(h5_file, rows, cols):
 
     # Helper function to create ragged array
@@ -26,16 +27,13 @@ def write_contact_map_h5(h5_file, rows, cols):
         data=data,
         dtype=dt,
         fletcher32=True,
-        chunks=(1,) + data.shape[1:]
+        chunks=(1,) + data.shape[1:],
     )
+
 
 def write_rmsd(h5_file, rmsd):
     h5_file.create_dataset(
-        "rmsd",
-        data=rmsd,
-        dtype="float16",
-        fletcher=True,
-        chunks=(1,)
+        "rmsd", data=rmsd, dtype="float16", fletcher32=True, chunks=(1,)
     )
 
 
@@ -83,11 +81,7 @@ class SparseContactMapReporter:
         return (steps, True, False, False, False, None)
 
     def _collect_rmsd(self, positions):
-        rmsd = rms.rmsd(
-            positions,
-            self._reference_positions,
-            superposition=True
-        )
+        rmsd = rms.rmsd(positions, self._reference_positions, superposition=True)
         self._rmsd.append(rmsd)
 
     def _collect_contact_maps(self, positions):

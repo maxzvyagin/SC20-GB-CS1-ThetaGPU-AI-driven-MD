@@ -222,14 +222,24 @@ class OutlierDetectionContext:
         old_files = [files[i] for i in old_h5_indices]
         files = old_files + files[-1 * len(new_h5_files) :]
 
+        # tf.data.Dataset.list_files expects a list of strings, not pathlib.Path objects!
+        # as_posix() converts a Path to a string
+        files = [f.as_posix() for f in files]
+
         # Use files closure to get correct data sample
         def data_generator():
             dtype = tf.float16 if self._model_params["mixed_precision"] else tf.float32
             list_files = tf.data.Dataset.list_files(files)
             dataset = tf.data.TFRecordDataset(list_files)
-            dataset = dataset.batch(self._model_params["batch_size"], drop_remainder=False)
+
+            # TODO: We want drop_remainder=False but this needs to be rewritten:
+            dataset = dataset.batch(
+                self._model_params["batch_size"], drop_remainder=True
+            )
             parse_sample = parse_function_record_predict(
-                dtype, self._model_params["tfrecord_shape"], self._model_params["input_shape"]
+                dtype,
+                self._model_params["tfrecord_shape"],
+                self._model_params["input_shape"],
             )
             return dataset.map(parse_sample)
 
@@ -269,7 +279,7 @@ def main():
     config = get_config()
     log_fname = config.md_dir.parent.joinpath("outlier_detection.log").as_posix()
     config_logging(filename=log_fname, **config.logging.dict())
-    logger = logging.getLogger('deepdrivemd.outlier.lof')
+    logger = logging.getLogger("deepdrivemd.outlier.lof")
 
     logger.info(f"Starting outlier detection main()")
     logger.info(f"{config.dict()}")

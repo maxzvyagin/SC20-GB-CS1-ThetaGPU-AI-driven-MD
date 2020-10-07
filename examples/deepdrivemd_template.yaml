@@ -33,7 +33,6 @@ cs1_training:
     eval_steps: 2
     hostname: medulla1
     medulla_experiment_path: /data/shared/experiment/on/medulla1
-    metrics: true
     mode: train
     num_frames_per_training: 16000
     run_script: /data/shared/vishal/ANL-shared/cvae_gb/run_mixed.sh
@@ -46,6 +45,7 @@ cs1_training:
 
 cvae_model:
     activation: relu
+    metrics: false
     allowed_optimizers:
         - sgd
         - sgdm

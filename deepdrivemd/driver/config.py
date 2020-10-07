@@ -89,6 +89,9 @@ class CVAEModelConfig(BaseSettings):
     tfrecord_shape: List[int] = [1, 36, 36]
     samples_per_file: int = 1
 
+    # Logging params are not supported on CS-1 and are disabled in run.py.
+    metrics: bool = True
+
     # Model params
     enc_conv_kernels: List[int] = [5, 5, 5, 5]
     # Encoder filters define OUTPUT filters per layer
@@ -165,9 +168,6 @@ class CS1TrainingUserConfig(BaseSettings):
     hostname: str = "medulla1"
     run_script: Path = Path("/data/shared/vishal/ANL-shared/cvae_gb/run_mixed.sh")
     num_frames_per_training: int = 16_000
-
-    # Logging params are not supported on CS-1 and are disabled in run.py.
-    metrics: bool = True
 
     # Run params
     mode: str = "train"

@@ -34,7 +34,6 @@ cs1_training: # start with 20480 and supplement with 20480 at a time (4096 eval,
     eval_steps: 16 # 512*16=8192 samples
     hostname: medulla1
     medulla_experiment_path: /data/shared/msalim/debug-bba_448_case1
-    metrics: false
     mode: train
     num_frames_per_training: 20480 # 160 files (128 per file)
     run_script: /data/shared/vishal/ANL-shared/cvae_gb/run_mixed.sh
@@ -47,6 +46,7 @@ cs1_training: # start with 20480 and supplement with 20480 at a time (4096 eval,
 
 cvae_model:
     activation: relu
+    metrics: False
     allowed_optimizers:
         - sgd
         - sgdm
