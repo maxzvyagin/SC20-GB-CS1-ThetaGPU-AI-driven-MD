@@ -1,8 +1,8 @@
-experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/test-nsp1016_448_case1
-walltime_min: 120
+experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/production-runs/bba_28_case2
+walltime_min: 150
 
 md_runner:
-    frames_per_h5: 128
+    frames_per_h5: 64
     initial_configs_dir: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/1FME
     local_run_dir: /raid/scratch
     md_environ_setup:
@@ -30,24 +30,24 @@ outlier_detection:
     run_command: "singularity run -B /lus:/lus:rw --nv /lus/theta-fs0/projects/RL-fold/msalim/tensorflow_20.09-tf1-py3.sif /lus/theta-fs0/projects/RL-fold/msalim/tf1-ngc-env/bin/python -m deepdrivemd.outlier.lof"
     sklearn_num_cpus: 16
 
-cs1_training: # start with 20480 and supplement with 20480 at a time (4096 eval, 16384 train)
-    eval_steps: 16 # 512*16=8192 samples
+cs1_training: # start with 10240 and supplement with 10240 at a time (2048 eval, 8192 train)
+    eval_steps: 8 # 512*8=4096 samples
     hostname: medulla1
-    medulla_experiment_path: /data/shared/msalim/debug-nsp1016_448_case1
-    initial_h5_transfer_dir: /lus/theta-fs0/projects/RL-fold/
+    medulla_experiment_path: /data/shared/msalim/production-runs/bba_28_case2
+    initial_h5_transfer_dir: /lus/theta-fs0/projects/RL-fold/braceal/1FME-training-seed/
     mode: train
-    num_frames_per_training: 20480 # 160 files (128 per file)
+    num_frames_per_training: 10240 # 160 files (64 per file)
     run_script: /data/shared/vishal/ANL-shared/cvae_gb/run_mixed.sh
     runconfig_params:
         keep_checkpoint_max: 1
         log_step_count_steps: 32
         save_checkpoints_steps: 320
         save_summary_steps: 32
-    train_steps: 6400 # 100 epochs, 1 epoch is 32768 samples->64 steps
+    train_steps: 640 # 20 epochs, 1 epoch is 16384 samples->32 steps
 
 cvae_model:
     activation: relu
-    metrics: False
+    metrics: false
     allowed_optimizers:
         - sgd
         - sgdm
@@ -102,8 +102,8 @@ cvae_model:
         - 28
     itemsize: 1
     kl_loss_reduction_type: sum
-    last_n_files: 32 # 1024 samples per file, per epoch 32768 samples
-    last_n_files_eval: 8 # 1024 samples per file, per epoch 8192 samples
+    last_n_files: 16 # 1024 samples per file, per epoch 16384 samples
+    last_n_files_eval: 4 # 1024 samples per file, per epoch 4096 samples
     latent_ndim: 10
     learning_rate: 2.0e-05
     loss_scale: 1.0
@@ -112,7 +112,7 @@ cvae_model:
     momentum: 0.9
     optimizer_name: rmsprop
     reconstruction_loss_reduction_type: sum
-    samples_per_file: 1024 # 20 files per transfer (16 train, 4 eval)
+    samples_per_file: 1024 # 10 files per transfer (8 train, 2 eval)
     tfrecord_shape:
         - 1
         - 28
