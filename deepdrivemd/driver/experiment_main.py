@@ -176,8 +176,6 @@ def main(config_filename: str):
     cvae_weights_dir.mkdir()
     md_dir.mkdir()
 
-    config.outlier_detection.md_dir = md_dir
-    config.outlier_detection.cvae_dir = cvae_weights_dir
     if config.cs1_training is not None:
         config.cs1_training.theta_gpu_path = cvae_weights_dir
 
