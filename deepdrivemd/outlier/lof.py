@@ -323,7 +323,10 @@ def main():
         creation_time = int(time.time())
         for outlier_ind, outlier_score in zip(outlier_inds, outlier_scores):
             # find the location of outlier in it's DCD file
-            dcd_filename, frame_index = find_frame(traj_dict, outlier_ind)
+            logger.debug(
+                f"outlier_ind={outlier_ind}, outlier_score={outlier_score} (REMOVE THIS DEBUG STATEMENT)"
+            )
+            frame_index, dcd_filename = find_frame(traj_dict, outlier_ind)
 
             # Rank the outlier PDBs according to their RMSD to reference state
             if config.extrinsic_outlier_score == "rmsd_to_reference_state":
@@ -342,7 +345,7 @@ def main():
         logger.info("Finished sending new outliers")
 
         # Compute elapsed time
-        mins, secs = divmod(time.time() - start_time, 60)
+        mins, secs = divmod(int(time.time() - start_time), 60)
         logger.info(f"Outlier detection elapsed time {mins:02d}:{secs:02d} done")
 
         # If elapsed time is greater than specified walltime then stop
