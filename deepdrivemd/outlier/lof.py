@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+import json
 from pathlib import Path
 import time
 import yaml
@@ -47,6 +48,7 @@ class OutlierDetectionContext:
     def __init__(
         self,
         local_scratch_dir: Path,
+        outlier_results_dir: Path,
         md_dir: Path,
         cvae_dir: Path,
         max_num_old_h5_files: int,
@@ -57,6 +59,7 @@ class OutlierDetectionContext:
         self.cvae_dir = Path(cvae_dir).resolve()
 
         self._local_scratch_dir = local_scratch_dir
+        self._outlier_results_dir = outlier_results_dir
         self.tfrecords_dir = local_scratch_dir.joinpath("tfrecords")
         self.tfrecords_dir.mkdir(exist_ok=True)
         self._seen_h5_files_set = set()
@@ -254,6 +257,21 @@ class OutlierDetectionContext:
 
         return (dcd_files, data_generator)
 
+    def backup_array(self, results, name, creation_time):
+        result_file = self._outlier_results_dir.joinpath(f'{name}-{creation_time}.npy')
+        np.save(result_file, results)
+
+    def backup_dict(self, results, name, creation_time):
+        # Convert numeric arrays to string for JSON serialization
+        json_result = {}
+        for key, val in results.items():
+            json_result[key] = list(map(str, val))
+
+        result_file = self._outlier_results_dir.joinpath(f'{name}-{creation_time}.json')
+        with open(result_file, 'w') as f:
+            json.dump(json_result, f)
+
+
     def halt_simulations(self):
         for md_dir in self.md_input_dirs:
             md_dir.joinpath("halt").touch()
@@ -331,6 +349,8 @@ def main():
         logger.debug(f"ctx.h5_length = {ctx.h5_length}")
         traj_dict = dict(zip(dcd_files, itertools.cycle([ctx.h5_length])))
 
+        # Collect extrinsic scores for logging
+        extrinsic_scores = []
         # Identify new outliers and add to queue
         creation_time = int(time.time())
         for outlier_ind, outlier_score in zip(outlier_inds, outlier_scores):
@@ -348,6 +368,9 @@ def main():
             else:
                 extrinsic_score = None
 
+            if extrinsic_score is not None:
+                extrinsic_scores.append(extrinsic_score)
+
             ctx.put_outlier(
                 dcd_filename, frame_index, creation_time, outlier_score, extrinsic_score
             )
@@ -356,6 +379,16 @@ def main():
         ctx.send()
         logger.info("Finished sending new outliers")
 
+        # Results dictionary storing outlier_inds, intrinsic & extrinsic scores
+        results = {
+            'outlier_inds': outlier_inds,
+            'intrinsic_scores': outlier_scores,
+            'extrinsic_scores': extrinsic_scores
+        }
+
+        ctx.backup_array(embeddings, 'embeddings', creation_time)
+        ctx.backup_dict(results, 'outliers', creation_time)
+
         # Compute elapsed time
         mins, secs = divmod(int(time.time() - start_time), 60)
         logger.info(f"Outlier detection elapsed time {mins:02d}:{secs:02d} done")
@@ -363,7 +396,7 @@ def main():
         # If elapsed time is greater than specified walltime then stop
         # all MD simulations and end outlier detection process.
         if mins + secs / 60 >= config.walltime_min:
-            logger.info(f"Walltime expired: halting simulations")
+            logger.info("Walltime expired: halting simulations")
             ctx.halt_simulations()
             return
 
