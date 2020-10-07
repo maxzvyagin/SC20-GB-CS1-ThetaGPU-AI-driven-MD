@@ -28,6 +28,7 @@ from deepdrivemd.outlier.utils import find_frame
 import logging
 
 logger = logging.getLogger(__name__)
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
 
 
 def get_config():

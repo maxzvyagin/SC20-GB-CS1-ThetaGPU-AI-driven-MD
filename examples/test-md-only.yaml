@@ -22,9 +22,9 @@ outlier_detection:
     extrinsic_outlier_score: none
     gpus_per_node: 8
     local_scratch_dir: /raid/scratch
-    max_num_old_h5_files: 1000
+    max_num_old_h5_files: 10
     num_nodes: 1
-    num_outliers: 500
+    num_outliers: 10
     ranks_per_node: 1
     run_command: "singularity run -B /lus:/lus:rw --nv /lus/theta-fs0/projects/RL-fold/msalim/tensorflow_20.09-tf1-py3.sif /lus/theta-fs0/projects/RL-fold/msalim/tf1-ngc-env/bin/python -m deepdrivemd.outlier.lof"
     sklearn_num_cpus: 16
