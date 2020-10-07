@@ -1,16 +1,20 @@
 import numpy as np
-from sklearn.neighbors import LocalOutlierFactor 
+from sklearn.neighbors import LocalOutlierFactor
 
 
-def find_frame(traj_dict, frame_number=0): 
+def find_frame(traj_dict, frame_number=0):
     local_frame = frame_number
-    for key in sorted(traj_dict): 
-        if local_frame - traj_dict[key] < 0:            
+    for key in sorted(traj_dict):
+        if local_frame - traj_dict[key] < 0:
             return local_frame, key
-        else: 
+        else:
             local_frame -= traj_dict[key]
-    raise Exception('frame %d should not exceed the total number of frames, %d' % (frame_number, sum(np.array(traj_dict.values()).astype(int))))   
-    
+    total_num_frames = sum(np.array(list(traj_dict.values())).astype(int))
+    raise Exception(
+        f"frame {frame_number} should not exceed the total number of frames, {total_num_frames}"
+    )
+
+
 # Helper function for LocalOutlierFactor
 def topk(a, k):
     """
@@ -28,13 +32,13 @@ def topk(a, k):
     return np.argpartition(a, k)[:k]
 
 
-def outlier_search_lof(embeddings, n_outliers, **kwargs): 
+def outlier_search_lof(embeddings, n_outliers, **kwargs):
 
     # Handle NANs in embeddings
-    embeddings = np.nan_to_num(embeddings, nan=0.)
-    
+    embeddings = np.nan_to_num(embeddings, nan=0.0)
+
     clf = LocalOutlierFactor(**kwargs)
-    
+
     # Array with 1 if inlier, -1 if outlier
     clf.fit_predict(embeddings)
 
