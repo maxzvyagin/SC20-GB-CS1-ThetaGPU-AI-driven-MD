@@ -20,12 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 def configure_amber_implicit(
-    pdb_file,
-    top_file,
-    dt_ps,
-    temperature_kelvin,
-    platform,
-    platform_properties
+    pdb_file, top_file, dt_ps, temperature_kelvin, platform, platform_properties
 ):
 
     # Configure system
@@ -60,12 +55,7 @@ def configure_amber_implicit(
 
 
 def configure_amber_explicit(
-    pdb_file, 
-    top_file,
-    dt_ps,
-    temperature_kelvin,
-    platform,
-    platform_properties
+    pdb_file, top_file, dt_ps, temperature_kelvin, platform, platform_properties
 ):
 
     # Configure system
@@ -94,8 +84,6 @@ def configure_simulation(
     gpu_index=0,
     dt_ps=0.002 * u.picoseconds,
     temperature_kelvin=300 * u.kelvin,
-    report_interval_ps=10 * u.picoseconds,
-    frames_per_h5=2,
 ):
     logger.info(f"configure_simulation: {sim_type} {ctx.pdb_file}")
     # Configure hardware
@@ -108,9 +96,12 @@ def configure_simulation(
 
     # Select implicit or explicit solvent
     args = (
-        ctx.pdb_file, ctx.top_file, dt_ps,
-        temperature_kelvin, platform,
-        platform_properties
+        ctx.pdb_file,
+        ctx.top_file,
+        dt_ps,
+        temperature_kelvin,
+        platform,
+        platform_properties,
     )
     if sim_type == "implicit":
         sim, coords = configure_amber_implicit(*args)
@@ -129,8 +120,16 @@ def configure_simulation(
     sim.minimizeEnergy()
     sim.context.setVelocitiesToTemperature(300 * u.kelvin, random.randint(1, 10000))
 
+    return sim
+
+
+def configure_reporters(sim, ctx, report_interval_ps, dt_ps, frames_per_h5):
     # Configure reporters
     report_freq = int(report_interval_ps / dt_ps)
+
+    # Overwriting sim.reporters: we're writing new report files but with same
+    # simulation state
+    sim.reporters = []
 
     # Configure DCD file reporter
     sim.reporters.append(app.DCDReporter(ctx.traj_file, report_freq))
@@ -160,7 +159,6 @@ def configure_simulation(
             totalEnergy=True,
         )
     )
-    return sim
 
 
 class SimulationContext:
@@ -243,7 +241,7 @@ class SimulationContext:
             logger.debug(f"No new PDB yet")
             return False
 
-        self.new_context(copy=self.pdb_file is not None)
+        self.new_context(copy=self.pdb_file is not None, have_new_pdb=True)
 
         with FileLock(pdb_file):
             self.pdb_file = shutil.move(pdb_file.as_posix(), self.workdir)
@@ -272,7 +270,7 @@ class SimulationContext:
         cleanup_h5(self.workdir, keep=result_h5)
         self._cp_sender.send(self.workdir, touch_done_file=True)
 
-    def new_context(self, copy=True):
+    def new_context(self, copy=True, have_new_pdb=False):
         # Backup previous context
         if copy:
             self.copy_context()
@@ -282,6 +280,10 @@ class SimulationContext:
 
         # Make new omm directory
         os.makedirs(self.workdir)
+
+        # Copy previous pdb to current workdir if we didn't get a new one
+        if not have_new_pdb:
+            self.pdb_file = shutil.copy(str(self.pdb_file), self.workdir)
 
     def halt_signal(self):
         return "halt" in glob.glob(self._input_dir)
@@ -296,7 +298,6 @@ def run_simulation(
     report_interval_ps,
     frames_per_h5,
     sim_time,
-    reeval_time,
     dt_ps,
     temperature_kelvin,
     h5_scp_path,
@@ -319,50 +320,41 @@ def run_simulation(
     logger.debug(f"simulation context created: {ctx.sim_prefix}")
 
     # Number of steps to run each simulation
-    nsteps = int(reeval_time / dt_ps)
-    # Number of times to run each simulation before
-    # restarting with different initial conditions
-    niter = int(sim_time / reeval_time)
-    logger.info(f"nsteps={nsteps}, niter={niter}")
-
-    # If a new PDB arrives before the simulation has run niter
-    # times, the new PDB is favored and simulated once the old
-    # simulation finishes it's final run.
+    nsteps = int(sim_time / dt_ps)
+    logger.info(f"nsteps={nsteps}")
 
     logger.debug("Blocking until new PDB is received...")
     while not ctx.is_new_pdb():
         time.sleep(5)
 
     logger.info(f"Received initial PDB: {ctx.pdb_file}")
+    logger.debug(f"Configuring new simulation")
+    sim = configure_simulation(
+        ctx=ctx,
+        gpu_index=gpu_index,
+        sim_type=sim_type,
+        dt_ps=dt_ps,
+        temperature_kelvin=temperature_kelvin,
+    )
+
     while not ctx.halt_signal():
+        configure_reporters(sim, ctx, report_interval_ps, dt_ps, frames_per_h5)
+        logger.info(f"START sim.step(nsteps={nsteps})")
+        sim.step(nsteps)
+        logger.info("END sim.step")
 
-        logger.debug(f"Configuring new simulation")
-        sim = configure_simulation(
-            ctx=ctx,
-            gpu_index=gpu_index,
-            sim_type=sim_type,
-            dt_ps=dt_ps,
-            temperature_kelvin=temperature_kelvin,
-            report_interval_ps=report_interval_ps,
-            frames_per_h5=frames_per_h5,
-        )
-
-        for _ in range(niter):
-            logger.info(f"START sim.step(nsteps={nsteps})")
-            sim.step(nsteps)
-            logger.info("END sim.step")
-
-            # If new PDB is found, reconfigure simulation, otherwise
-            # continue runing old simulation
-            if ctx.is_new_pdb():
-                break
-            if ctx.halt_signal():
-                logger.info("Detected halt signal: breaking")
-                break
-        else:
-            # This is only called if we DIDN'T break out of the loop above
+        if not ctx.is_new_pdb():
+            logger.debug(f"No new PDB: calling new_context() and keeping same traj")
             ctx.new_context()
-        logger.info(f"New simulation context: {ctx.sim_prefix}")
+        else:
+            logger.debug(f"Configuring new simulation")
+            sim = configure_simulation(
+                ctx=ctx,
+                gpu_index=gpu_index,
+                sim_type=sim_type,
+                dt_ps=dt_ps,
+                temperature_kelvin=temperature_kelvin,
+            )
 
     # Copy data generated by last simulation to file system
     ctx.copy_context()

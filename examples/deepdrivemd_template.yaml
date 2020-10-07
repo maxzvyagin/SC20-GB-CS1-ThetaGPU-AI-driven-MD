@@ -11,7 +11,6 @@ md_runner:
         - conda activate /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm
     md_run_command: python run_openmm.py
     num_jobs: 10
-    reeval_time_ns: 2.0
     reference_pdb_file: /path/to/reference.pdb
     report_interval_ps: 50.0
     sim_type: explicit

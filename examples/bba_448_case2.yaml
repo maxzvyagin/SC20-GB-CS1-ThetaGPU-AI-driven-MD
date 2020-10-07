@@ -13,7 +13,6 @@ md_runner:
     md_run_command: /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm/bin/python -m deepdrivemd.sim.run_openmm
     num_jobs: 10
     temperature_kelvin: 310.0
-    reeval_time_ns: 2.0
     reference_pdb_file: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/1FME/1FME-folded.pdb
     report_interval_ps: 50.0
     sim_type: explicit
