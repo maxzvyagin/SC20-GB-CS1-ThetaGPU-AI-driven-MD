@@ -32,6 +32,7 @@ outlier_detection:
 cs1_training: null
 
 cvae_model:
+    metrics: False
     activation: relu
     allowed_optimizers:
         - sgd
