@@ -23,6 +23,9 @@ def concat_h5(workdir, outfile):
             for field in fields:
                 try:
                     data[field].append(f[field][...])
+                    logger.debug(
+                        f"{os.path.dirname(h5_file)} has {field} with {len(data[field][-1])} examples"
+                    )
                 except KeyError:
                     raise KeyError(
                         f"Cannot access field {field}: available keys are {f.keys()}"
@@ -30,6 +33,7 @@ def concat_h5(workdir, outfile):
 
     for field in data:
         data[field] = np.concatenate(data[field])
+        logger.debug(f"Concatenated: {field} length is {len(data[field])}")
 
     with h5py.File(outfile, "w") as fout:
 
