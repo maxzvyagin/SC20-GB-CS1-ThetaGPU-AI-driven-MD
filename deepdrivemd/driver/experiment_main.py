@@ -61,7 +61,6 @@ def launch_md(
         temperature_kelvin=config.temperature_kelvin,
         simulation_length_ns=config.simulation_length_ns,
         report_interval_ps=config.report_interval_ps,
-        reeval_time_ns=config.reeval_time_ns,
         frames_per_h5=config.frames_per_h5,
         omm_dir_prefix=omm_dir_prefix,  # like "run058",
         local_run_dir=config.local_run_dir,

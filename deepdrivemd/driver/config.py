@@ -38,8 +38,6 @@ class MDConfig(BaseSettings):
     report_interval_ps: float = 50
     dt_ps: float = 0.002
     temperature_kelvin: float = 310.0
-    # Length of each simulation in nanoseconds if recursive mode is active
-    reeval_time_ns: float = 10
     frames_per_h5: int
     result_dir: Path
     h5_scp_path: Optional[str]
@@ -63,7 +61,6 @@ class MDRunnerConfig(BaseSettings):
     temperature_kelvin: float = 310.0
     simulation_length_ns: float = 10
     report_interval_ps: float = 50
-    reeval_time_ns: float = 2
     local_run_dir: Path = Path("/raid/scratch")
     md_run_command: str = "python run_openmm.py"
     md_environ_setup: List[str] = [
@@ -71,12 +68,6 @@ class MDRunnerConfig(BaseSettings):
         "conda activate /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm",
         "export PYTHONPATH=/lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD:$PYTHONPATH",
     ]
-
-    @validator("reeval_time_ns")
-    def reeval_time_less_than_sim_time(cls, v, values):
-        if values["simulation_length_ns"] <= v:
-            raise ValueError("reeval_time_ns must be less than simulation_length_ns")
-        return v
 
 
 class CVAEModelConfig(BaseSettings):

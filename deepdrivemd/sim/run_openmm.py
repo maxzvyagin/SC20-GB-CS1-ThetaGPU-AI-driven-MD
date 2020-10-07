@@ -29,7 +29,6 @@ def build_simulation_params(cfg: dict) -> dict:
         report_interval_ps=float(cfg["report_interval_ps"]) * u.picoseconds,
         frames_per_h5=cfg["frames_per_h5"],
         sim_time=float(cfg["simulation_length_ns"]) * u.nanoseconds,
-        reeval_time=float(cfg["reeval_time_ns"]) * u.nanoseconds,
         dt_ps=float(cfg["dt_ps"]) * u.picoseconds,
         temperature_kelvin=float(cfg["temperature_kelvin"]) * u.kelvin,
         h5_scp_path=cfg["h5_scp_path"],
