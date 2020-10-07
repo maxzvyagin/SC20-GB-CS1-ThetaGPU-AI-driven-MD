@@ -147,6 +147,7 @@ class OutlierDetectionRunConfig(OutlierDetectionUserConfig):
     md_dir: Path
     cvae_dir: Path
     walltime_min: int
+    outlier_predict_batch_size: int
 
 
 class GPUTrainingUserConfig(BaseSettings):

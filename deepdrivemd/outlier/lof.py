@@ -258,7 +258,7 @@ class OutlierDetectionContext:
         return (dcd_files, data_generator)
 
     def backup_array(self, results, name, creation_time):
-        result_file = self._outlier_results_dir.joinpath(f'{name}-{creation_time}.npy')
+        result_file = self._outlier_results_dir.joinpath(f"{name}-{creation_time}.npy")
         np.save(result_file, results)
 
     def backup_dict(self, results, name, creation_time):
@@ -267,10 +267,9 @@ class OutlierDetectionContext:
         for key, val in results.items():
             json_result[key] = list(map(str, val))
 
-        result_file = self._outlier_results_dir.joinpath(f'{name}-{creation_time}.json')
-        with open(result_file, 'w') as f:
+        result_file = self._outlier_results_dir.joinpath(f"{name}-{creation_time}.json")
+        with open(result_file, "w") as f:
             json.dump(json_result, f)
-
 
     def halt_simulations(self):
         for md_dir in self.md_input_dirs:
@@ -278,7 +277,11 @@ class OutlierDetectionContext:
 
 
 def predict_from_cvae(
-    workdir: Path, weights_file: str, config: CVAEModelConfig, data_generator
+    workdir: Path,
+    weights_file: str,
+    config: CVAEModelConfig,
+    data_generator,
+    outlier_predict_batch_size: int,
 ):
     params = config.dict()
     params["sim_data_dir"] = workdir.as_posix()
@@ -286,6 +289,7 @@ def predict_from_cvae(
     params["eval_data_dir"] = workdir.as_posix()
     params["global_path"] = workdir.joinpath("files_seen.txt").as_posix()
     params["fraction"] = 0.0
+    params["batch_size"] = outlier_predict_batch_size
 
     tf_config = tf.estimator.RunConfig()
     est = tf.estimator.Estimator(
@@ -330,6 +334,7 @@ def main():
             ctx.cvae_weights_file,
             config.model_params,
             data_generator,
+            config.outlier_predict_batch_size,
         )
         logger.info(f"end model prediction: generated {len(embeddings)} embeddings")
 
@@ -381,13 +386,13 @@ def main():
 
         # Results dictionary storing outlier_inds, intrinsic & extrinsic scores
         results = {
-            'outlier_inds': outlier_inds,
-            'intrinsic_scores': outlier_scores,
-            'extrinsic_scores': extrinsic_scores
+            "outlier_inds": outlier_inds,
+            "intrinsic_scores": outlier_scores,
+            "extrinsic_scores": extrinsic_scores,
         }
 
-        ctx.backup_array(embeddings, 'embeddings', creation_time)
-        ctx.backup_dict(results, 'outliers', creation_time)
+        ctx.backup_array(embeddings, "embeddings", creation_time)
+        ctx.backup_dict(results, "outliers", creation_time)
 
         # Compute elapsed time
         mins, secs = divmod(int(time.time() - start_time), 60)

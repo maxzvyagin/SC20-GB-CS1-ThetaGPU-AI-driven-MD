@@ -127,6 +127,7 @@ def dispatch_od_run(
     manager,
     user_config: OutlierDetectionUserConfig,
     md_dir: Path,
+    outlier_predict_batch_size: int,
     logging_cfg,
     model_params,
     cvae_dir,
@@ -145,6 +146,7 @@ def dispatch_od_run(
         md_dir=md_dir,
         cvae_dir=cvae_dir,
         walltime_min=walltime_min,
+        outlier_predict_batch_size=outlier_predict_batch_size,
         outlier_results_dir=outlier_results_dir,
         **user_config.dict(),
     )
@@ -209,6 +211,7 @@ def main(config_filename: str):
         cvae_dir=cvae_weights_dir,
         walltime_min=config.walltime_min,
         experiment_dir=config.experiment_directory,
+        outlier_predict_batch_size=config.md_runner.frames_per_h5,
     )
 
     elapsed_sec = time.time() - start
