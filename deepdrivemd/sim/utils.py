@@ -14,8 +14,7 @@ def concat_h5(workdir, outfile):
 
     logger.debug(f"Collected {len(h5_files)} to concatenate")
 
-    # fields = ["contact_map", "rmsd"]
-    fields = ["contact_map"]
+    fields = ["contact_map", "rmsd"]
     data = {x: [] for x in fields}
 
     for h5_file in h5_files:

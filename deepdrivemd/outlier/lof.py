@@ -222,6 +222,10 @@ class OutlierDetectionContext:
         old_files = [files[i] for i in old_h5_indices]
         files = old_files + files[-1 * len(new_h5_files) :]
 
+        # tf.data.Dataset.list_files expects a list of strings, not pathlib.Path objects!
+        # as_posix() converts a Path to a string
+        files = [f.as_posix() for f in files]
+
         # Use files closure to get correct data sample
         def data_generator():
             dtype = tf.float16 if self._model_params["mixed_precision"] else tf.float32
