@@ -179,9 +179,6 @@ def main(config_filename: str):
     cvae_weights_dir.mkdir()
     md_dir.mkdir()
 
-    if config.cs1_training is not None:
-        config.cs1_training.theta_gpu_path = cvae_weights_dir
-
     log_fname = config.experiment_directory.joinpath("experiment_main.log").as_posix()
     config_logging(filename=log_fname, **config.logging.dict())
     logger = logging.getLogger("deepdrivemd.driver.experiment_main")
