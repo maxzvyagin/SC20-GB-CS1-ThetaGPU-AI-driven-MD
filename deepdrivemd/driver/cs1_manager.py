@@ -41,7 +41,7 @@ def write_configuration(conn: Connection, training_config: CS1TrainingRunConfig)
     h5_dir = training_config.initial_h5_transfer_dir
     if h5_dir and h5_dir.is_dir():
         for f in h5_dir.glob("*.h5"):
-            conn.put(f.as_posix(), training_config.sim_data_dir)
+            conn.put(f.as_posix(), training_config.sim_data_dir.as_posix())
 
     with NamedTemporaryFile(mode="w", delete=False) as fp:
         yaml.dump(json.loads(training_config.json()), fp)
