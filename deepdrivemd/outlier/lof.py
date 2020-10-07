@@ -231,8 +231,10 @@ class OutlierDetectionContext:
             dtype = tf.float16 if self._model_params["mixed_precision"] else tf.float32
             list_files = tf.data.Dataset.list_files(files)
             dataset = tf.data.TFRecordDataset(list_files)
+
+            # TODO: We want drop_remainder=False but this needs to be rewritten:
             dataset = dataset.batch(
-                self._model_params["batch_size"], drop_remainder=False
+                self._model_params["batch_size"], drop_remainder=True
             )
             parse_sample = parse_function_record_predict(
                 dtype,
