@@ -168,6 +168,7 @@ class CS1TrainingUserConfig(BaseSettings):
     hostname: str = "medulla1"
     run_script: Path = Path("/data/shared/vishal/ANL-shared/cvae_gb/run_mixed.sh")
     num_frames_per_training: int = 16_000
+    initial_h5_transfer_dir: Optional[Path] = None
 
     # Run params
     mode: str = "train"
