@@ -130,3 +130,4 @@ dmypy.json
 
 .vscode/
 env/
+data/nsp10_16/
