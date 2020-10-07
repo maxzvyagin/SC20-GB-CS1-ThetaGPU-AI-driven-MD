@@ -39,7 +39,7 @@ def model_fn(features, labels, mode, params):
     # Model output
     outputs, kl_loss, embedding_output = build_model(features, params)
     tf.compat.v1.logging.info(f"Model Outputs Shape: {outputs.get_shape()}")
-    tf.compat.v1.logging.info(f"Targets Shape: {targets.get_shape()}")
+    # tf.compat.v1.logging.info(f"Targets Shape: {targets.get_shape()}")
 
     if mode == tf.estimator.ModeKeys.PREDICT:
         return tf.estimator.EstimatorSpec(
