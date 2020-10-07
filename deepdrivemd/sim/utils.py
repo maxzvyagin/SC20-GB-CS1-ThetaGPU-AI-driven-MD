@@ -12,7 +12,8 @@ def concat_h5(workdir, outfile):
     # Sort files by time of creation
     h5_files = sorted(h5_files, key=lambda file: os.path.getctime(file))
 
-    fields = ["contact_map", "rmsd"]
+    # fields = ["contact_map", "rmsd"]
+    fields = ["contact_map"]
     data = {x: [] for x in fields}
 
     for h5_file in h5_files:
