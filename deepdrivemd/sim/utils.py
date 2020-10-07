@@ -10,7 +10,9 @@ logger = logging.getLogger(__name__)
 def concat_h5(workdir, outfile):
     h5_files = glob.glob(os.path.join(workdir, "*.h5"))
     # Sort files by time of creation
-    h5_files = sorted(h5_files, key=lambda file: os.path.getctime(file))
+    h5_files = list(sorted(h5_files, key=lambda file: os.path.getctime(file)))
+
+    logger.debug(f"Collected {len(h5_files)} to concatenate")
 
     # fields = ["contact_map", "rmsd"]
     fields = ["contact_map"]
@@ -20,7 +22,7 @@ def concat_h5(workdir, outfile):
         with h5py.File(h5_file, "r") as f:
             for field in fields:
                 try:
-                    data[field] = f[field][...]
+                    data[field].append(f[field][...])
                 except KeyError:
                     raise KeyError(
                         f"Cannot access field {field}: available keys are {f.keys()}"
