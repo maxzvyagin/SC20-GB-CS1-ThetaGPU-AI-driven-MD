@@ -31,7 +31,7 @@ class MDConfig(BaseSettings):
     Auto-generates configuration file for run_openmm.py
     """
 
-    reference_pdb_file: Path
+    reference_pdb_file: Optional[Path]
     local_run_dir: Path
     sim_type: MDType
     simulation_length_ns: float = 10
@@ -57,7 +57,7 @@ class MDRunnerConfig(BaseSettings):
 
     num_jobs: int
     initial_configs_dir: Path
-    reference_pdb_file: Path
+    reference_pdb_file: Optional[Path]
     sim_type: MDType
     frames_per_h5: int = 1024
     temperature_kelvin: float = 310.0
