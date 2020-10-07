@@ -20,10 +20,10 @@ md_runner:
 
 outlier_detection:
     environ_setup: []
-    extrinsic_outlier_score: none
+    extrinsic_outlier_score: rmsd_to_reference_state
     gpus_per_node: 8
     local_scratch_dir: /raid/scratch
-    max_num_old_h5_files: 1000
+    max_num_old_h5_files: 40
     num_nodes: 1
     num_outliers: 500
     ranks_per_node: 1
@@ -34,7 +34,7 @@ cs1_training: # start with 20480 and supplement with 20480 at a time (4096 eval,
     eval_steps: 16 # 512*16=8192 samples
     hostname: medulla1
     medulla_experiment_path: /data/shared/msalim/debug-bba_448_case1
-    initial_h5_transfer_dir: null
+    initial_h5_transfer_dir: /lus/theta-fs0/projects/RL-fold/
     mode: train
     num_frames_per_training: 20480 # 160 files (128 per file)
     run_script: /data/shared/vishal/ANL-shared/cvae_gb/run_mixed.sh
