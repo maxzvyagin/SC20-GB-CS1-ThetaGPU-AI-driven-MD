@@ -6,8 +6,39 @@ from deepdrivemd.models.symmetric_cvae.model import model_fn
 from deepdrivemd.models.symmetric_cvae.data import (parse_function_record_predict, 
 parse_function_record)
 from deepdrivemd.models.symmetric_cvae.utils import write_to_tfrecords, get_params
-
+import os
+import json
+import socket
 #from deepdrivemd.models.symmetric_cvae.data import simulation_tf_record_input_fn
+
+# Dependent on which node
+#PROVIDED_IPS = {""}
+
+def init_gpu_training():
+
+    with open(os.environ['COBALT_NODEFILE'], 'r') as f:
+        nodefile = f.readlines()
+
+    ips, hostnames = [], []
+    
+    for line in nodefile:
+        # 172.23.2.189 thetagpu01.i2b.alcf.anl.gov
+        split_line = line.split()
+        ip, hostname = split_line[0], split_line[1]
+        ips.append(ip)
+        hostnames.append(hostname)
+
+    current_hostname = socket.gethostname()
+
+    host_id = hostnames.index(current_hostname)
+
+    #task = "chief" if host_id == 0 else "worker"
+    task = "worker"
+
+    os.environ["TF_CONFIG"] = json.dumps({
+        "cluster": {"worker": ips},
+        "task": {"type": task, "index": host_id}
+    })
 
 
 def update_dataset(params):
@@ -74,23 +105,38 @@ def simulation_tf_record_input_fn(params):
 
 def main():
 
-    h5_dir = "/lus/theta-fs0/projects/RL-fold/braceal/bba/h5"
+    # Congifure GPU
+
+    # multi node
+    init_gpu_training()
+    strategy = tf.distribute.experimental.MultiWorkerMirroredStrategy()
+    
+    # Single node / multi-gpu
+    #strategy = tf.distribute.MirroredStrategy()
+    
+    # Single node / single-gpu
+    #strategy = None
+
+    #h5_dir = "/lus/theta-fs0/projects/RL-fold/braceal/bba/h5"
     yml_file = "/lus/theta-fs0/projects/RL-fold/braceal/bba/params.yaml"
     weights_dir = "/projects/RL-fold/msalim/production-runs/bba_28_case1-long/cvae_weights"
     tfrecords_dir = "/lus/theta-fs0/projects/RL-fold/braceal/bba/tfrecords"
-    embeddings_file = "/lus/theta-fs0/projects/RL-fold/braceal/bba/bba-anton-embeddings.npy"
+    #embeddings_file = "/lus/theta-fs0/projects/RL-fold/braceal/bba/bba-anton-embeddings.npy"
 
     params = get_params(yml_file)
     params["fraction"] = 0
-    params["sim_data_dir"] = h5_dir
+    #params["sim_data_dir"] = h5_dir
     params["data_dir"] = tfrecords_dir
     params["eval_data_dir"] = tfrecords_dir
 
-    update_dataset(params)
+    #update_dataset(params)
 
     print("Update dataset done")
 
-    tf_config = tf.estimator.RunConfig()
+    tf_config = tf.estimator.RunConfig(
+        train_distribute=strategy
+    )
+
     est = tf.estimator.Estimator(
         model_fn,
         params=params,
