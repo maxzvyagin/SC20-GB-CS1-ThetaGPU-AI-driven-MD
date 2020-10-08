@@ -251,7 +251,7 @@ class SimulationContext:
         # TODO: this is brittle; be careful!
         system_dir = Path(self.pdb_file).with_suffix("").name.split("__")[1]
         top_file = list(self._initial_configs_dir.joinpath(system_dir).glob("*.top"))
-        top_file = top_file[1] if top_file else None
+        top_file = top_file[0] if top_file else None
         if top_file is not None:
             with FileLock(top_file):
                 self.top_file = shutil.copy(top_file.as_posix(), self.workdir)
@@ -305,7 +305,7 @@ def run_simulation(
     result_dir,
     input_dir,
     initial_configs_dir,
-    wrap
+    wrap,
 ):
 
     # Context to manage files and directory structure
