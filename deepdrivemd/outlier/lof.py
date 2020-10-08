@@ -269,6 +269,21 @@ class OutlierDetectionContext:
             )
             return dataset.map(parse_sample)
 
+        dataset_iterator = tf.compat.v1.data.make_initializable_iterator(
+            data_generator()
+        )
+
+        # DEBUGGING:
+        inputs = dataset_iterator.get_next()
+        with tf.compat.v1.Session() as sess:
+            logger.info(f"dataset_iterator.get_next(): inputs: {inputs}")
+            sess.run(tf.compat.v1.tables_initializer())
+            sess.run(dataset_iterator.initializer)
+            while True:
+                outputs = sess.run(inputs)
+                logger.info(f"sess.run(outputs) = {outputs}")
+                time.sleep(10)
+
         return (dcd_files, data_generator)
 
     def backup_array(self, results, name, creation_time):
