@@ -126,7 +126,7 @@ class OutlierDetectionContext:
         # Blocks until all PDBs are sent
         md_dirs = self.get_open_md_input_slots()
         logger.info(f"Sending new outlier pdbs to {len(md_dirs)} dirs")
-        with ThreadPoolExecutor() as ex:
+        with ThreadPoolExecutor(max_workers=8) as ex:
             for _ in ex.map(self.dispatch_next_outlier, md_dirs):
                 pass
 
