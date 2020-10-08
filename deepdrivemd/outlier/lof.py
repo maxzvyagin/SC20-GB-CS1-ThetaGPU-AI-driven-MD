@@ -173,7 +173,7 @@ class OutlierDetectionContext:
         got_new_h5 = 0
         while got_new_h5 < 80:
             logger.debug("Outlier detection waiting for new H5 files")
-            for done_path in self.md_dir.glob("**/DONE"):
+            for done_path in self.md_dir.glob("*/DONE"):
                 h5 = list(done_path.parent.glob("*.h5"))[0]
                 dcd = list(done_path.parent.glob("*.dcd"))[0]
                 if h5 not in self.h5_files:
