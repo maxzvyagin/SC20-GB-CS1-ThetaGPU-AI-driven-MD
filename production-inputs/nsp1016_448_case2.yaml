@@ -20,7 +20,7 @@ md_runner:
 
 outlier_detection:
     environ_setup: []
-    extrinsic_outlier_score: null
+    extrinsic_outlier_score: "none"
     gpus_per_node: 8
     local_scratch_dir: /raid/scratch
     max_num_old_h5_files: 40

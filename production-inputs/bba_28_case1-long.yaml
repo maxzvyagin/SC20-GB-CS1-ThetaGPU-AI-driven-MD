@@ -1,4 +1,4 @@
-experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/production-runs/bba_28_case1
+experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/production-runs/bba_28_case1-long
 walltime_min: 240
 
 md_runner:
@@ -33,7 +33,7 @@ outlier_detection:
 cs1_training: # start with 20480 and supplement with 20480 at a time (4096 eval, 16384 train)
     eval_steps: 16 # 512*16=8192 samples
     hostname: medulla1
-    medulla_experiment_path: /data/shared/msalim/production-runs/bba_28_case1
+    medulla_experiment_path: /data/shared/msalim/production-runs/bba_28_case1-long
     initial_h5_transfer_dir: /lus/theta-fs0/projects/RL-fold/braceal/1FME-training-seed/
     mode: train
     num_frames_per_training: 20480 # 160 files (128 per file)
