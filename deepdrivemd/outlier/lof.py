@@ -53,6 +53,7 @@ class OutlierDetectionContext:
         cvae_dir: Path,
         max_num_old_h5_files: int,
         model_params: dict,
+        outlier_predict_batch_size: int,
         **kwargs,
     ):
         self.md_dir = Path(md_dir).resolve()
@@ -74,6 +75,7 @@ class OutlierDetectionContext:
         self._h5_contact_map_length = None
         self.max_num_old_h5_files = max_num_old_h5_files
         self._seen_outliers = set()
+        self._outlier_predict_batch_size = outlier_predict_batch_size
 
     @property
     def h5_files(self):
@@ -260,7 +262,7 @@ class OutlierDetectionContext:
 
             # TODO: We want drop_remainder=False but this needs to be rewritten:
             dataset = dataset.batch(
-                self._model_params["batch_size"], drop_remainder=True
+                self._outlier_predict_batch_size, drop_remainder=True
             )
             parse_sample = parse_function_record_predict(
                 dtype,
@@ -269,20 +271,19 @@ class OutlierDetectionContext:
             )
             return dataset.map(parse_sample)
 
-        dataset_iterator = tf.compat.v1.data.make_initializable_iterator(
-            data_generator()
-        )
-
         # DEBUGGING:
-        inputs = dataset_iterator.get_next()
-        with tf.compat.v1.Session() as sess:
-            logger.info(f"dataset_iterator.get_next(): inputs: {inputs}")
-            sess.run(tf.compat.v1.tables_initializer())
-            sess.run(dataset_iterator.initializer)
-            while True:
-                outputs = sess.run(inputs)
-                logger.info(f"sess.run(outputs) = {outputs}")
-                time.sleep(10)
+        #dataset_iterator = tf.compat.v1.data.make_initializable_iterator(
+        #    data_generator()
+        #)
+        #inputs = dataset_iterator.get_next()
+        #with tf.compat.v1.Session() as sess:
+        #    logger.info(f"dataset_iterator.get_next(): inputs: {inputs}")
+        #    sess.run(tf.compat.v1.tables_initializer())
+        #    sess.run(dataset_iterator.initializer)
+        #    while True:
+        #        outputs = sess.run(inputs)
+        #        logger.info(f"sess.run(outputs) = {outputs}")
+        #        time.sleep(10)
 
         return (dcd_files, data_generator)
 
