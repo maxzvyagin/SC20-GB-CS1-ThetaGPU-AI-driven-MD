@@ -255,6 +255,10 @@ class SimulationContext:
         if top_file is not None:
             with FileLock(top_file):
                 self.top_file = shutil.copy(top_file.as_posix(), self.workdir)
+            logger.info(f"Setting self.top_file = {self.top_file}")
+        else:
+            self.top_file = None
+            logger.info(f"Did not find top file; setting self.top_file = None")
         return True
 
     def copy_context(self):
