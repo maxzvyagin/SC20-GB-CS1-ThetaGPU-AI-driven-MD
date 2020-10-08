@@ -15,8 +15,8 @@ def retry_safe_Popen(args, max_retry=6):
                 args,
                 shell=True,
                 executable="/bin/bash",
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
+                # stdout=subprocess.PIPE, # TODO: fixme
+                # stderr=subprocess.STDOUT, # TODO: fix me
                 encoding="utf-8",
             )
             break
@@ -45,9 +45,11 @@ class CopySender:
             if retcode is None:
                 remaining_processes.append(p)
             elif retcode == 0:
-                self.log_transfer_success(p)
+                # self.log_transfer_success(p) # TODO: fix me
+                logger.info(f"Transfer succeeded: {p.args}")
             else:
-                self.log_transfer_error(p)
+                # self.log_transfer_error(p) # TODO: fix me
+                logger.info(f"Transfer error: {p.args}")
         self.processes = remaining_processes
         logger.debug(
             f"{self.__class__.__name__} has {len(self.processes)} active Popens left"
@@ -101,7 +103,7 @@ class LocalCopySender(CopySender):
         p = retry_safe_Popen(args)
         if p is not None:
             self.processes.append(p)
-        self.pid_size_map[p.pid] = size
+            self.pid_size_map[p.pid] = size
         self.check_processes()
 
     def log_transfer_success(self, process):
