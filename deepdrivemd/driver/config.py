@@ -36,6 +36,7 @@ class MDConfig(BaseSettings):
     sim_type: MDType
     simulation_length_ns: float = 10
     report_interval_ps: float = 50
+    wrap: bool = False
     dt_ps: float = 0.002
     temperature_kelvin: float = 310.0
     frames_per_h5: int
@@ -61,6 +62,7 @@ class MDRunnerConfig(BaseSettings):
     temperature_kelvin: float = 310.0
     simulation_length_ns: float = 10
     report_interval_ps: float = 50
+    wrap: bool = False
     local_run_dir: Path = Path("/raid/scratch")
     md_run_command: str = "python run_openmm.py"
     md_environ_setup: List[str] = [

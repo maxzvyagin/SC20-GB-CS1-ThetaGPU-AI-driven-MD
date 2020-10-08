@@ -35,6 +35,7 @@ def build_simulation_params(cfg: dict) -> dict:
         result_dir=cfg["result_dir"],
         input_dir=cfg["input_dir"],
         initial_configs_dir=cfg["initial_configs_dir"],
+        wrap=cfg["wrap"]
     )
 
 
