@@ -1,5 +1,5 @@
 experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/production-runs/nsp1016_448_case1
-walltime_min: 150
+walltime_min: 240
 
 md_runner:
     frames_per_h5: 128
@@ -14,9 +14,10 @@ md_runner:
     num_jobs: 160
     temperature_kelvin: 310.0
     reference_pdb_file: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/nsp10_16/input_comp_000/comp.pdb
-    report_interval_ps: 50.0
+    report_interval_ps: 20.0
     sim_type: explicit
-    simulation_length_ns: 10.0
+    simulation_length_ns: 2.0
+    wrap: True
 
 outlier_detection:
     environ_setup: []
