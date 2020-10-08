@@ -98,11 +98,16 @@ def model_fn(features, labels, mode, params):
             unscaled_grads_vars, global_step=global_step
         )
 
+    logging_hook = tf.estimator.LoggingTensorHook(
+        [loss], every_n_iter=10, at_end=True
+    )
+
     return tf.estimator.EstimatorSpec(
         mode=mode,
         predictions=outputs,
         loss=loss,
         train_op=train_op,
+        training_chief_hooks=[logging_hook],
         training_hooks=training_hooks,
         eval_metric_ops=eval_metric_ops,
     )
