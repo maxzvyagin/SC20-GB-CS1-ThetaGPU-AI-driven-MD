@@ -1,0 +1,26 @@
+Jobid: 10001316
+qsub --mode script -n 20 -t 260 -q R.CVD-Mol-AI -A CVD-Mol-AI --attrs pubnet=true:enable_ssh=1:ssds=required:ssd_size=2048 submit.sh nsp1016_448_debug.yaml
+Thu Oct 08 20:36:37 2020 +0000 (UTC) submitted with cwd set to: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/examples
+jobid 10001316 submitted from terminal /dev/pts/11
+Thu Oct 08 20:36:48 2020 +0000 (UTC) 
+Thu Oct 08 20:36:48 2020 +0000 (UTC) Command: '/usr/bin/ssh' 'thetagpu19' '/usr/bin/cobalt-launcher.py' '--nf' '/var/tmp/cobalt.10001316' '--jobid' '10001316' '--cwd' '/lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/examples' '--env' 'COBALT_RESID=10000023' '--env' 'COBALT_JOBID=10001316' '/lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/examples/submit.sh' 'nsp1016_448_debug.yaml'
+Thu Oct 08 20:36:48 2020 +0000 (UTC) 
+Thu Oct 08 20:36:48 2020 +0000 (UTC) Environment:
+Thu Oct 08 20:36:48 2020 +0000 (UTC) COBALT_RESID=10000023
+Thu Oct 08 20:36:48 2020 +0000 (UTC) SHELL=/bin/bash
+Thu Oct 08 20:36:48 2020 +0000 (UTC) COBALT_NODEFILE=/tmp/tmpoRRbIc
+Thu Oct 08 20:36:48 2020 +0000 (UTC) COBALT_PARTNAME=thetagpu19
+Thu Oct 08 20:36:48 2020 +0000 (UTC) COBALT_JOBID=10001316
+Thu Oct 08 20:36:48 2020 +0000 (UTC) COBALT_STARTTIME=1602189400
+Thu Oct 08 20:36:48 2020 +0000 (UTC) LOGNAME=msalim
+Thu Oct 08 20:36:48 2020 +0000 (UTC) USER=msalim
+Thu Oct 08 20:36:48 2020 +0000 (UTC) COBALT_ENDTIME=1602205000
+Thu Oct 08 20:36:48 2020 +0000 (UTC) COBALT_PARTSIZE=20
+Thu Oct 08 20:36:48 2020 +0000 (UTC) HOME=/home/msalim
+Thu Oct 08 20:36:48 2020 +0000 (UTC) COBALT_JOBSIZE=20
+Thu Oct 08 20:36:48 2020 +0000 (UTC) 
+Thu Oct 08 20:36:48 2020 +0000 (UTC) Info: stdin received from /dev/null
+Thu Oct 08 20:36:48 2020 +0000 (UTC) Info: stdout sent to /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/examples/10001316.output
+Thu Oct 08 20:36:48 2020 +0000 (UTC) Info: stderr sent to /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/examples/10001316.error
+Thu Oct 08 20:36:48 2020 +0000 (UTC) 
+Thu Oct 08 21:16:58 2020 +0000 (UTC) Info: user delete requested with signal SIGTERM by user msalim

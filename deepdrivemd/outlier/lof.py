@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+from tempfile import NamedTemporaryFile
 import json
 from pathlib import Path
 import time
@@ -142,7 +143,14 @@ class OutlierDetectionContext:
         )
         outlier_pdb_file = self._local_scratch_dir.joinpath(outlier_pdb_fname)
 
-        mda_traj = mda.Universe(pdb_path.as_posix(), dcd_filename.as_posix())
+        temp_pdb = NamedTemporaryFile(dir=self._local_scratch_dir, suffix=".pdb")
+        temp_pdb.close()
+        temp_dcd = NamedTemporaryFile(dir=self._local_scratch_dir, suffix=".dcd")
+        temp_dcd.close()
+        local_pdb = shutil.copy(pdb_path.as_posix(), Path(temp_pdb.name).resolve().as_posix())
+        local_dcd = shutil.copy(dcd_filename.as_posix(), Path(temp_dcd.name).resolve().as_posix())
+
+        mda_traj = mda.Universe(local_pdb, local_dcd)
         mda_traj.trajectory[frame_index]
 
         PDB = mda.Writer(outlier_pdb_file.as_posix())

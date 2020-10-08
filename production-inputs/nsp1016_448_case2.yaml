@@ -1,5 +1,5 @@
 experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/production-runs/nsp1016_448_case2
-walltime_min: 240
+walltime_min: 150
 
 md_runner:
     frames_per_h5: 64

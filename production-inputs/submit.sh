@@ -1,6 +1,6 @@
 #!/bin/bash
 #COBALT -n 21
-#COBALT -t 260
+#COBALT -t 160
 #COBALT -q R.CVD-Mol-AI
 #COBALT -A CVD-Mol-AI
 #COBALT --attrs pubnet=true:enable_ssh=1:ssds=required:ssd_size=2048

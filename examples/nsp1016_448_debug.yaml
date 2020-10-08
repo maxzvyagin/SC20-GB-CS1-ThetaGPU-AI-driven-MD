@@ -1,4 +1,4 @@
-experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/nsp1016_448-debugrun
+experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/nsp1016_448-debugrun-round3
 walltime_min: 240
 
 md_runner:
@@ -34,7 +34,7 @@ outlier_detection:
 cs1_training: # start with 20480 and supplement with 20480 at a time (4096 eval, 16384 train)
     eval_steps: 2 # 512*16=8192 samples
     hostname: medulla1
-    medulla_experiment_path: /data/shared/msalim/nsp1016_448-debugrun
+    medulla_experiment_path: /data/shared/msalim/nsp1016_448-debugrun-round3
     initial_h5_transfer_dir: /lus/theta-fs0/projects/RL-fold/braceal/cs1-nsp10_16-seed
     mode: train
     num_frames_per_training: 2432 # 160 files (128 per file)
