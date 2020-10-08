@@ -123,7 +123,7 @@ def configure_simulation(
     return sim
 
 
-def configure_reporters(sim, ctx, report_interval_ps, dt_ps, frames_per_h5):
+def configure_reporters(sim, ctx, report_interval_ps, dt_ps, frames_per_h5, wrap):
     # Configure reporters
     report_freq = int(report_interval_ps / dt_ps)
 
@@ -140,7 +140,8 @@ def configure_reporters(sim, ctx, report_interval_ps, dt_ps, frames_per_h5):
         SparseContactMapReporter(
             ctx.h5_prefix,
             report_freq,
-            ctx.reference_pdb_file,
+            wrap_pdb_file=ctx.pdb_file if wrap else None,
+            reference_pdb_file=ctx.reference_pdb_file,
             senders=senders,
             batch_size=frames_per_h5,
         )
@@ -304,6 +305,7 @@ def run_simulation(
     result_dir,
     input_dir,
     initial_configs_dir,
+    wrap
 ):
 
     # Context to manage files and directory structure
@@ -338,7 +340,7 @@ def run_simulation(
     )
 
     while not ctx.halt_signal():
-        configure_reporters(sim, ctx, report_interval_ps, dt_ps, frames_per_h5)
+        configure_reporters(sim, ctx, report_interval_ps, dt_ps, frames_per_h5, wrap)
         logger.info(f"START sim.step(nsteps={nsteps})")
         sim.step(nsteps)
         logger.info("END sim.step")

@@ -36,12 +36,32 @@ def write_rmsd(h5_file, rmsd):
         "rmsd", data=rmsd, dtype="float16", fletcher32=True, chunks=(1,)
     )
 
+def wrap(atoms):
+
+    def wrap_nsp10_16(positions):
+        # update the positions 
+        atoms.positions = positions
+        # only porting CA into nsp16
+        nsp16 = atoms.segments[0].atoms
+        # wrapping atoms into continous frame pbc box
+        box_edge = nsp16.dimensions[0]
+        box_center = box_edge / 2
+        trans_vec = box_center - np.array(nsp16.center_of_mass())
+        atoms.translate(trans_vec).wrap()
+        trans_vec = box_center - np.array(atoms.center_of_mass())
+        atoms.translate(trans_vec).wrap()
+
+        return atoms.positions
+
+    return wrap_nsp10_16
+
 
 class SparseContactMapReporter:
     def __init__(
         self,
         file,
         reportInterval,
+        wrap_pdb_file=None,
         reference_pdb_file=None,
         selection="CA",
         threshold=8.0,
@@ -70,6 +90,14 @@ class SparseContactMapReporter:
         else:
             self._reference_positions = None
 
+        if wrap_pdb_file is not None:
+            u = mda.Universe(wrap_pdb_file)
+            selection = f"protein and name {self._selection}"
+            atoms = u.select_atoms(selection)
+            self.wrap = wrap(atoms)
+        else:
+            self.wrap = None
+
     def _init_batch(self):
         # Frame counter for writing batches to HDF5
         self._num_frames = 0
@@ -81,6 +109,9 @@ class SparseContactMapReporter:
         return (steps, True, False, False, False, None)
 
     def _collect_rmsd(self, positions):
+        if self.wrap is not None:
+            positions = self.wrap(positions)
+
         rmsd = rms.rmsd(positions, self._reference_positions, superposition=True)
         self._rmsd.append(rmsd)
 

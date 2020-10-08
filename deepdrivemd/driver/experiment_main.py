@@ -70,6 +70,7 @@ def launch_md(
         result_dir=md_dir,
         input_dir=input_dir,
         logging=logging_config,
+        wrap=config.wrap
     )
 
     # Push the YAML over to node-local storage, then start run
