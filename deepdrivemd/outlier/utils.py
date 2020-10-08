@@ -7,10 +7,8 @@ logger = logging.getLogger(__name__)
 
 def find_frame(traj_dict, frame_number=0):
     local_frame = frame_number
-    logger.debug(f"find_frame(traj_dict, frame_number={frame_number})")
 
     for dcd_file, num_frames in sorted(traj_dict.items()):
-        logger.debug(f"find_frame: traj_dict[{dcd_file}] = {num_frames}")
         if local_frame - num_frames < 0:
             return local_frame, dcd_file
         else:

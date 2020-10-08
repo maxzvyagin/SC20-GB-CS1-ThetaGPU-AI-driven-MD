@@ -206,9 +206,6 @@ class OutlierDetectionContext:
         return self._h5_contact_map_length
 
     def update_dataset(self):
-        logger.debug(
-            f"update_dataset: self._seen_h5_files_set={self._seen_h5_files_set}"
-        )
         num_h5s = min(len(self._seen_h5_files_set), self.max_num_old_h5_files)
         if num_h5s > 0:
             stride = int(len(self._seen_h5_files_set) // num_h5s)
@@ -220,8 +217,6 @@ class OutlierDetectionContext:
         new_h5_indices = list(
             range(len(self.h5_files) - len(new_h5_files), len(self.h5_files))
         )
-        logger.debug(f"update_dataset: new_h5_files={new_h5_files}")
-        logger.debug(f"update_dataset: old_h5_indices={old_h5_indices}")
 
         indices = old_h5_indices + new_h5_indices
         all_dcd_files = (
@@ -250,10 +245,6 @@ class OutlierDetectionContext:
                 tfrecord_dir=self.tfrecords_dir,
             )
 
-        logger.debug(
-            f"All tfrecord_files exist? {all(Path(f).is_file() for f in tfrecord_files)}"
-        )
-
         # Use files closure to get correct data sample
         def data_generator():
             dtype = tf.float16 if self._model_params["mixed_precision"] else tf.float32
@@ -270,20 +261,6 @@ class OutlierDetectionContext:
                 self._model_params["input_shape"],
             )
             return dataset.map(parse_sample)
-
-        # DEBUGGING:
-        #dataset_iterator = tf.compat.v1.data.make_initializable_iterator(
-        #    data_generator()
-        #)
-        #inputs = dataset_iterator.get_next()
-        #with tf.compat.v1.Session() as sess:
-        #    logger.info(f"dataset_iterator.get_next(): inputs: {inputs}")
-        #    sess.run(tf.compat.v1.tables_initializer())
-        #    sess.run(dataset_iterator.initializer)
-        #    while True:
-        #        outputs = sess.run(inputs)
-        #        logger.info(f"sess.run(outputs) = {outputs}")
-        #        time.sleep(10)
 
         return (dcd_files, data_generator)
 
@@ -390,9 +367,6 @@ def main():
         creation_time = int(time.time())
         for outlier_ind, outlier_score in zip(outlier_inds, outlier_scores):
             # find the location of outlier in it's DCD file
-            logger.debug(
-                f"outlier_ind={outlier_ind}, outlier_score={outlier_score} (REMOVE THIS DEBUG STATEMENT)"
-            )
             frame_index, dcd_filename = find_frame(traj_dict, outlier_ind)
 
             # Rank the outlier PDBs according to their RMSD to reference state
