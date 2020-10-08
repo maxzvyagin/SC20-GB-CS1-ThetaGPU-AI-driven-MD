@@ -189,6 +189,8 @@ class OutlierDetectionContext:
                 break
             logger.debug("Outlier detection waiting for model checkpoint file")
             time.sleep(10)
+        time.sleep(10)
+        self.cvae_weights_file = tf.train.latest_checkpoint(self.cvae_dir)
 
     @property
     def h5_length(self):
