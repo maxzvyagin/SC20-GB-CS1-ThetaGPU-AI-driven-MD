@@ -13,7 +13,7 @@ md_runner:
     md_run_command: /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm/bin/python -m deepdrivemd.sim.run_openmm
     num_jobs: 160
     temperature_kelvin: 310.0
-    reference_pdb_file: # TODO!
+    reference_pdb_file: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/nsp10_16/input_comp_000/comp.pdb
     report_interval_ps: 50.0
     sim_type: explicit
     simulation_length_ns: 10.0
@@ -34,7 +34,7 @@ cs1_training: # start with 20480 and supplement with 20480 at a time (4096 eval,
     eval_steps: 16 # 512*16=8192 samples
     hostname: medulla1
     medulla_experiment_path: /data/shared/msalim/production-runs/nsp1016_448_case1
-    initial_h5_transfer_dir: # TODO
+    initial_h5_transfer_dir: /lus/theta-fs0/projects/RL-fold/braceal/cs1-nsp10_16-seed
     mode: train
     num_frames_per_training: 20480 # 160 files (128 per file)
     run_script: /data/shared/vishal/ANL-shared/cvae_gb/run_mixed.sh
