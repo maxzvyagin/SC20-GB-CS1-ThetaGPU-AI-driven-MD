@@ -168,18 +168,18 @@ class OutlierDetectionContext:
     def rescan_h5_dcd(self):
         # We *always* want to scan at least once
         # But on the first pass, block until at least some h5 files appear
-        while True:
+        got_new_h5 = False
+        while not got_new_h5:
+            logger.debug("Outlier detection waiting for new H5 files")
             for done_path in self.md_dir.glob("**/DONE"):
                 h5 = list(done_path.parent.glob("*.h5"))[0]
                 dcd = list(done_path.parent.glob("*.dcd"))[0]
                 if h5 not in self.h5_files:
                     self._h5_dcd_map[h5] = dcd
                     self.dcd_h5_map[dcd] = h5
-
-            if self.h5_files:
-                return
-            logger.debug("Outlier detection waiting for initial H5 file")
-            time.sleep(10)
+                    got_new_h5 = True
+            if not got_new_h5:
+                time.sleep(10)
 
     def update_model(self):
         """Gets most recent model weights."""
