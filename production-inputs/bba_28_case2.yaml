@@ -43,11 +43,11 @@ cs1_training: # start with 10240 and supplement with 10240 at a time (2048 eval,
         log_step_count_steps: 32
         save_checkpoints_steps: 320
         save_summary_steps: 32
-    train_steps: 640 # 20 epochs, 1 epoch is 16384 samples->32 steps
+    train_steps: 1600 # 50 epochs, 1 epoch is 16384 samples->32 steps
 
 cvae_model:
     activation: relu
-    metrics: false
+    metrics: False
     allowed_optimizers:
         - sgd
         - sgdm

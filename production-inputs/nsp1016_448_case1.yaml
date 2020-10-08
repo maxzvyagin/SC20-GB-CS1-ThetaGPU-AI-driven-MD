@@ -1,9 +1,9 @@
-experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/test-bba_448_case1
-walltime_min: 120
+experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/production-runs/nsp1016_448_case1
+walltime_min: 150
 
 md_runner:
     frames_per_h5: 128
-    initial_configs_dir: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/1FME
+    initial_configs_dir: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/nsp10_16
     local_run_dir: /raid/scratch
     md_environ_setup:
         - eval "$(/lus/theta-fs0/projects/RL-fold/msalim/miniconda3/bin/conda shell.bash
@@ -13,14 +13,14 @@ md_runner:
     md_run_command: /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm/bin/python -m deepdrivemd.sim.run_openmm
     num_jobs: 160
     temperature_kelvin: 310.0
-    reference_pdb_file: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/1FME/1FME-folded.pdb
+    reference_pdb_file: # TODO!
     report_interval_ps: 50.0
     sim_type: explicit
     simulation_length_ns: 10.0
 
 outlier_detection:
     environ_setup: []
-    extrinsic_outlier_score: rmsd_to_reference_state
+    extrinsic_outlier_score: null
     gpus_per_node: 8
     local_scratch_dir: /raid/scratch
     max_num_old_h5_files: 40
@@ -33,8 +33,8 @@ outlier_detection:
 cs1_training: # start with 20480 and supplement with 20480 at a time (4096 eval, 16384 train)
     eval_steps: 16 # 512*16=8192 samples
     hostname: medulla1
-    medulla_experiment_path: /data/shared/msalim/debug-bba_448_case1
-    initial_h5_transfer_dir: /lus/theta-fs0/projects/RL-fold/
+    medulla_experiment_path: /data/shared/msalim/production-runs/nsp1016_448_case1
+    initial_h5_transfer_dir: # TODO
     mode: train
     num_frames_per_training: 20480 # 160 files (128 per file)
     run_script: /data/shared/vishal/ANL-shared/cvae_gb/run_mixed.sh
