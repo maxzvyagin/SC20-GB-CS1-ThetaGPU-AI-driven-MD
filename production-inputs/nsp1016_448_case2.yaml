@@ -14,9 +14,8 @@ md_runner:
     num_jobs: 160
     temperature_kelvin: 310.0
     reference_pdb_file: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/nsp10_16/input_comp_000/comp.pdb
-    report_interval_ps: 20.0
     sim_type: explicit
-    simulation_length_ns: 2.0
+    simulation_length_ns: 2.6
     wrap: True
 
 outlier_detection:
