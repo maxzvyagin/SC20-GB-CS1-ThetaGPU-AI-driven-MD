@@ -41,6 +41,7 @@ def launch_md(
     input_dir.mkdir()
 
     # pdb_file = /nsp10_16/comp_inputs/input_comp_088/comp.pdb
+    assert "__" not in pdb_file
     system_name = pdb_file.parent.name  # system_name --> "input_comp_088"
     basename = pdb_file.with_suffix("").name  # basename --> "comp"
     if "_" in basename:
@@ -50,9 +51,10 @@ def launch_md(
     # TODO: this is brittle; be careful!
     # Requires a directory structure with one pdb/top pair per subdirectory
     # And files must not contain a double underscore
+
     initial_pdb = input_dir.joinpath(basename + "__" + system_name + ".pdb")
-    shutil.copy(pdb_file, initial_pdb)
-    logger.info(f"Copied initial pdb {pdb_file} to  {initial_pdb}")
+    dest = shutil.copy(pdb_file, initial_pdb)
+    logger.info(f"Copied initial pdb: {dest}")
 
     run_config = MDConfig(
         initial_configs_dir=config.initial_configs_dir,
