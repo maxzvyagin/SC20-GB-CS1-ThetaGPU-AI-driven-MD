@@ -202,6 +202,9 @@ class OutlierDetectionContext:
         return self._h5_contact_map_length
 
     def update_dataset(self):
+        logger.debug(
+            f"update_dataset: self._seen_h5_files_set={self._seen_h5_files_set}"
+        )
         num_h5s = min(len(self._seen_h5_files_set), self.max_num_old_h5_files)
         if num_h5s > 0:
             stride = int(len(self._seen_h5_files_set) // num_h5s)
@@ -213,6 +216,8 @@ class OutlierDetectionContext:
         new_h5_indices = list(
             range(len(self.h5_files) - len(new_h5_files), len(self.h5_files))
         )
+        logger.debug(f"update_dataset: new_h5_files={new_h5_files}")
+        logger.debug(f"update_dataset: old_h5_indices={old_h5_indices}")
 
         indices = old_h5_indices + new_h5_indices
         all_dcd_files = (
@@ -226,6 +231,9 @@ class OutlierDetectionContext:
             self.tfrecords_dir.joinpath(f.with_suffix(".tfrecords").name).as_posix()
             for f in dcd_files
         ]
+        logger.debug(
+            f"update_dataset: Will predict from tfrecord_files={tfrecord_files}"
+        )
 
         self._seen_h5_files_set.update(new_h5_files)
 
@@ -237,6 +245,10 @@ class OutlierDetectionContext:
                 final_shape=self._model_params["tfrecord_shape"][1:],
                 tfrecord_dir=self.tfrecords_dir,
             )
+
+        logger.debug(
+            f"All tfrecord_files exist? {all(Path(f).is_file() for f in tfrecord_files)}"
+        )
 
         # Use files closure to get correct data sample
         def data_generator():
