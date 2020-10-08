@@ -7,6 +7,29 @@ import time
 logger = logging.getLogger(__name__)
 
 
+def retry_safe_Popen(args, max_retry=6):
+    p = None
+    for attempt in range(max_retry):
+        try:
+            p = subprocess.Popen(
+                args,
+                shell=True,
+                executable="/bin/bash",
+                # stdout=subprocess.PIPE, # TODO: fixme
+                # stderr=subprocess.STDOUT, # TODO: fix me
+                encoding="utf-8",
+            )
+            break
+        except Exception as e:
+            logger.warning(f"Popen raised: {e}")
+            logger.warning(f"Popen attempt {attempt+1}/{max_retry}")
+            time.sleep(3)
+    if p is None:
+        logger.error(f"Failed to Popen scp after {max_retry} attempts!")
+        logger.error("Continuing and hoping for the best.")
+    return p
+
+
 class CopySender:
     def __init__(self, target):
         self.target = target
@@ -22,10 +45,15 @@ class CopySender:
             if retcode is None:
                 remaining_processes.append(p)
             elif retcode == 0:
-                self.log_transfer_success(p)
+                # self.log_transfer_success(p) # TODO: fix me
+                logger.info(f"Transfer succeeded: {p.args}")
             else:
-                self.log_transfer_error(p)
+                # self.log_transfer_error(p) # TODO: fix me
+                logger.info(f"Transfer error: {p.args}")
         self.processes = remaining_processes
+        logger.debug(
+            f"{self.__class__.__name__} has {len(self.processes)} active Popens left"
+        )
 
     def wait_all(self, timeout=30):
         logger.debug(f"Waiting for {len(self.processes)} transfer processes to join")
@@ -72,16 +100,10 @@ class LocalCopySender(CopySender):
             args += f" && touch {done_file}"
 
         logger.debug(f"Starting transfer: {args}")
-        p = subprocess.Popen(
-            args,
-            shell=True,
-            executable="/bin/bash",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            encoding="utf-8",
-        )
-        self.processes.append(p)
-        self.pid_size_map[p.pid] = size
+        p = retry_safe_Popen(args)
+        if p is not None:
+            self.processes.append(p)
+            self.pid_size_map[p.pid] = size
         self.check_processes()
 
     def log_transfer_success(self, process):
@@ -121,15 +143,9 @@ class RemoteCopySender(CopySender):
             send_cmd = "scp -v"
         args = f"{send_cmd} {path} {self.target}"
         logger.debug(f"Starting transfer: {args}")
-        p = subprocess.Popen(
-            args,
-            shell=True,
-            executable="/bin/bash",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            encoding="utf-8",
-        )
-        self.processes.append(p)
+        p = retry_safe_Popen(args)
+        if p is not None:
+            self.processes.append(p)
         self.check_processes()
 
     @staticmethod

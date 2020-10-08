@@ -41,7 +41,7 @@ def launch_md(
     input_dir.mkdir()
 
     # pdb_file = /nsp10_16/comp_inputs/input_comp_088/comp.pdb
-    assert "__" not in pdb_file
+    assert "__" not in pdb_file.as_posix()
     system_name = pdb_file.parent.name  # system_name --> "input_comp_088"
     basename = pdb_file.with_suffix("").name  # basename --> "comp"
     if "_" in basename:
@@ -70,7 +70,7 @@ def launch_md(
         result_dir=md_dir,
         input_dir=input_dir,
         logging=logging_config,
-        wrap=config.wrap
+        wrap=config.wrap,
     )
 
     # Push the YAML over to node-local storage, then start run
