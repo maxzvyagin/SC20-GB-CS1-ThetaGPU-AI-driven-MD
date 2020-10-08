@@ -58,10 +58,11 @@ def main():
     params = get_params(args.params)
     cmd_params = list(vars(args).items())
     params.update({k: v for (k, v) in cmd_params if (k in params) and (v is not None)})
-
+    #dist_strategy = tf.distribute.MirroredStrategy()
     # RUN
     config = tf.estimator.RunConfig(
-        **params["runconfig_params"],
+        **params["runconfig_params"]
+        #train_distribute=dist_strategy
     )
     est = tf.estimator.Estimator(
         model_fn,
