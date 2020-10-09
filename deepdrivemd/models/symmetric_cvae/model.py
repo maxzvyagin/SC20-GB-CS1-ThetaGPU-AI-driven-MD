@@ -34,7 +34,7 @@ def model_fn(features, labels, mode, params):
     global_step = tf.compat.v1.train.get_global_step()
 
     if mixed_precision:
-        tf.keras.mixed_precision.experimental.set_policy("infer_float32_vars")
+        tf.keras.mixed_precision.experimental.set_policy("mixed_float16")
 
     # Model output
     outputs, kl_loss, embedding_output = build_model(features, params)
@@ -89,7 +89,7 @@ def model_fn(features, labels, mode, params):
 
         # Apply loss scaling
         scaled_grads_vars = optimizer.compute_gradients(
-            loss * loss_scale, tf.compat.v1.trainable_variables()
+            loss * tf.cast(loss_scale, dtype=loss.dtype), tf.compat.v1.trainable_variables()
         )
         unscaled_grads_vars = [(g / loss_scale, v) for g, v in scaled_grads_vars]
 

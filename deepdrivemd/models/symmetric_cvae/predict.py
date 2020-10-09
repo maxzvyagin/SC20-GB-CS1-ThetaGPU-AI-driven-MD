@@ -14,6 +14,7 @@ import socket
 # Dependent on which node
 #PROVIDED_IPS = {""}
 
+
 def init_gpu_training():
 
     with open(os.environ['COBALT_NODEFILE'], 'r') as f:
@@ -101,6 +102,9 @@ def simulation_tf_record_input_fn(params):
     )
     dataset = dataset.repeat()
     dataset=dataset.prefetch(tf.contrib.data.AUTOTUNE)
+    # Distirbute data set over workers
+    #dataset = params["strategy"].experimental_distribute_dataset(dataset)
+    #dataset = dataset.shard(1, 0)
     return dataset
 
 def main():
@@ -108,14 +112,14 @@ def main():
     # Congifure GPU
 
     # multi node
-    init_gpu_training()
-    strategy = tf.distribute.experimental.MultiWorkerMirroredStrategy()
+    #init_gpu_training()
+    #strategy = tf.distribute.experimental.MultiWorkerMirroredStrategy()
     
     # Single node / multi-gpu
     #strategy = tf.distribute.MirroredStrategy()
-    
+
     # Single node / single-gpu
-    #strategy = None
+    strategy = None
 
     #h5_dir = "/lus/theta-fs0/projects/RL-fold/braceal/bba/h5"
     yml_file = "/lus/theta-fs0/projects/RL-fold/braceal/bba/params.yaml"
@@ -128,6 +132,7 @@ def main():
     #params["sim_data_dir"] = h5_dir
     params["data_dir"] = tfrecords_dir
     params["eval_data_dir"] = tfrecords_dir
+    params["strategy"] = strategy
 
     #update_dataset(params)
 
@@ -139,6 +144,7 @@ def main():
 
     est = tf.estimator.Estimator(
         model_fn,
+        model_dir="/lus/theta-fs0/projects/RL-fold/braceal/bba/model",
         params=params,
         config=tf_config,
     )
@@ -169,5 +175,5 @@ def main():
 
 
 if __name__ == '__main__':
-    tf.compat.v1.logging.set_verbosity(tf.compate.v1.logging.INFO)
+    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
     main()
