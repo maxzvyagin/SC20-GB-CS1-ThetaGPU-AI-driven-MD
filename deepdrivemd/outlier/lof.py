@@ -17,12 +17,9 @@ import MDAnalysis as mda
 
 from deepdrivemd import config_logging
 from deepdrivemd.util import FileLock
-from deepdrivemd.driver.config import OutlierDetectionRunConfig, CVAEModelConfig
+from deepdrivemd.driver.config import OutlierDetectionRunConfig
 
-from deepdrivemd.models.symmetric_cvae.utils import write_single_tfrecord
-from deepdrivemd.models.symmetric_cvae.data import parse_function_record_predict
-from deepdrivemd.models.symmetric_cvae.model import model_fn
-
+from deepdrivemd.models.symmetric_cvae.predict_gpu import TFEstimatorModel
 
 from deepdrivemd.outlier.utils import outlier_search_lof
 from deepdrivemd.outlier.utils import find_frame
@@ -69,11 +66,12 @@ class OutlierDetectionContext:
         self._h5_dcd_map = {}
         self.dcd_h5_map = {}
         self._pdb_outlier_queue = queue.PriorityQueue()
-        self._model_params = model_params
         self._h5_contact_map_length = None
         self.max_num_old_h5_files = max_num_old_h5_files
         self._seen_outliers = set()
-        self._outlier_predict_batch_size = outlier_predict_batch_size
+        self.model = TFEstimatorModel(
+            self.tfrecords_dir, model_params, outlier_predict_batch_size
+        )
 
     @property
     def h5_files(self):
@@ -233,45 +231,9 @@ class OutlierDetectionContext:
         )  # self.dcd_files is @property; don't put in listcomp!
         dcd_files = [all_dcd_files[i] for i in indices]
 
-        # tf.data.Dataset.list_files expects a list of strings, not pathlib.Path objects!
-        # as_posix() converts a Path to a string
-        tfrecord_files = [
-            self.tfrecords_dir.joinpath(f.with_suffix(".tfrecords").name).as_posix()
-            for f in dcd_files
-        ]
-        logger.debug(
-            f"update_dataset: Will predict from tfrecord_files={tfrecord_files}"
-        )
-
+        model_input = self.model.preprocess(new_h5_files, dcd_files)
         self._seen_h5_files_set.update(new_h5_files)
-
-        # Write to local node storage
-        for h5_file in new_h5_files:
-            write_single_tfrecord(
-                h5_file=h5_file,
-                initial_shape=self._model_params["h5_shape"][1:],
-                final_shape=self._model_params["tfrecord_shape"][1:],
-                tfrecord_dir=self.tfrecords_dir,
-            )
-
-        # Use files closure to get correct data sample
-        def data_generator():
-            dtype = tf.float16 if self._model_params["mixed_precision"] else tf.float32
-            list_files = tf.data.Dataset.list_files(tfrecord_files)
-            dataset = tf.data.TFRecordDataset(list_files)
-
-            # TODO: We want drop_remainder=False but this needs to be rewritten:
-            dataset = dataset.batch(
-                self._outlier_predict_batch_size, drop_remainder=True
-            )
-            parse_sample = parse_function_record_predict(
-                dtype,
-                self._model_params["tfrecord_shape"],
-                self._model_params["input_shape"],
-            )
-            return dataset.map(parse_sample)
-
-        return (dcd_files, data_generator)
+        return (dcd_files, model_input)
 
     def backup_array(self, results, name, creation_time):
         result_file = self._outlier_results_dir.joinpath(f"{name}-{creation_time}.npy")
@@ -292,31 +254,6 @@ class OutlierDetectionContext:
             md_dir.joinpath("halt").touch()
 
 
-def predict_from_cvae(
-    workdir: Path,
-    weights_file: str,
-    config: CVAEModelConfig,
-    data_generator,
-    outlier_predict_batch_size: int,
-):
-    params = config.dict()
-    params["sim_data_dir"] = workdir.as_posix()
-    params["data_dir"] = workdir.as_posix()
-    params["eval_data_dir"] = workdir.as_posix()
-    params["global_path"] = workdir.joinpath("files_seen.txt").as_posix()
-    params["fraction"] = 0.0
-    params["batch_size"] = outlier_predict_batch_size
-
-    tf_config = tf.estimator.RunConfig()
-    est = tf.estimator.Estimator(model_fn, params=params, config=tf_config,)
-    gen = est.predict(
-        input_fn=data_generator,
-        checkpoint_path=weights_file,
-        yield_single_examples=True,
-    )
-    return np.array([list(it.values())[0] for it in gen])
-
-
 def main():
     global logger
     config = get_config()
@@ -333,7 +270,7 @@ def main():
     while True:
         # Will block until the first H5 files are received
         ctx.rescan_h5_dcd()
-        dcd_files, data_generator = ctx.update_dataset()
+        dcd_files, model_input_data = ctx.update_dataset()
 
         # NOTE: It's up to the ML service to do model selection;
         # we're assuming the latest cvae weights file has the best model
@@ -341,13 +278,7 @@ def main():
 
         assert ctx.cvae_weights_file is not None
         logger.info(f"start model prediction with weights: {ctx.cvae_weights_file}")
-        embeddings = predict_from_cvae(
-            ctx.tfrecords_dir,
-            ctx.cvae_weights_file,
-            config.model_params,
-            data_generator,
-            config.outlier_predict_batch_size,
-        )
+        embeddings = ctx.model.predict(model_input_data, ctx.cvae_weights_file,)
         logger.info(f"end model prediction: generated {len(embeddings)} embeddings")
 
         logger.info(
