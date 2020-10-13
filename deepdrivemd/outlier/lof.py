@@ -19,10 +19,7 @@ from deepdrivemd import config_logging
 from deepdrivemd.util import FileLock
 from deepdrivemd.driver.config import OutlierDetectionRunConfig, CVAEModelConfig
 
-from deepdrivemd.models.symmetric_cvae.utils import (
-    write_to_tfrecords,
-    write_single_tfrecord,
-)
+from deepdrivemd.models.symmetric_cvae.utils import write_single_tfrecord
 from deepdrivemd.models.symmetric_cvae.data import parse_function_record_predict
 from deepdrivemd.models.symmetric_cvae.model import model_fn
 
@@ -97,7 +94,7 @@ class OutlierDetectionContext:
     ):
         assert created_time > 0
         assert intrinsic_score < 0
-        if extrinsic_score == None:
+        if extrinsic_score is None:
             extrinsic_score = 0
         # TODO: Make combined score or have a function to compute the score
         #       which the user can specify score_func(dcd_file, frame_index) -> score
@@ -147,8 +144,12 @@ class OutlierDetectionContext:
         temp_pdb.close()
         temp_dcd = NamedTemporaryFile(dir=self._local_scratch_dir, suffix=".dcd")
         temp_dcd.close()
-        local_pdb = shutil.copy(pdb_path.as_posix(), Path(temp_pdb.name).resolve().as_posix())
-        local_dcd = shutil.copy(dcd_filename.as_posix(), Path(temp_dcd.name).resolve().as_posix())
+        local_pdb = shutil.copy(
+            pdb_path.as_posix(), Path(temp_pdb.name).resolve().as_posix()
+        )
+        local_dcd = shutil.copy(
+            dcd_filename.as_posix(), Path(temp_dcd.name).resolve().as_posix()
+        )
 
         mda_traj = mda.Universe(local_pdb, local_dcd)
         mda_traj.trajectory[frame_index]
@@ -307,11 +308,7 @@ def predict_from_cvae(
     params["batch_size"] = outlier_predict_batch_size
 
     tf_config = tf.estimator.RunConfig()
-    est = tf.estimator.Estimator(
-        model_fn,
-        params=params,
-        config=tf_config,
-    )
+    est = tf.estimator.Estimator(model_fn, params=params, config=tf_config,)
     gen = est.predict(
         input_fn=data_generator,
         checkpoint_path=weights_file,

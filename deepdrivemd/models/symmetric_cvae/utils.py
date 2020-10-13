@@ -68,7 +68,9 @@ def write_single_tfrecord(h5_file, initial_shape, final_shape, tfrecord_dir):
     Not needed on CS1
     """
     tfrecord_dir = Path(tfrecord_dir)
-    record_name = tfrecord_dir.joinpath(Path(h5_file).with_suffix(".tfrecords").name).as_posix()
+    record_name = tfrecord_dir.joinpath(
+        Path(h5_file).with_suffix(".tfrecords").name
+    ).as_posix()
     contact_maps = []
     with h5py.File(h5_file, "r", libver="latest", swmr=False) as f:
         for j, raw_indices in enumerate(f["contact_map"]):

@@ -3,13 +3,9 @@ File containing the model function and parameterizations for the
 Covid CVAE model.
 """
 import tensorflow as tf
-import numpy as np
 from .layers import build_model
 from .optimizer import get_optimizer
 
-################################################################################
-## MODEL FUNCTION DEFINITION
-################################################################################
 _REDUCTION_TYPES = ["sum", "mean"]
 
 
@@ -89,7 +85,8 @@ def model_fn(features, labels, mode, params):
 
         # Apply loss scaling
         scaled_grads_vars = optimizer.compute_gradients(
-            loss * tf.cast(loss_scale, dtype=loss.dtype), tf.compat.v1.trainable_variables()
+            loss * tf.cast(loss_scale, dtype=loss.dtype),
+            tf.compat.v1.trainable_variables(),
         )
         unscaled_grads_vars = [(g / loss_scale, v) for g, v in scaled_grads_vars]
 
@@ -98,9 +95,7 @@ def model_fn(features, labels, mode, params):
             unscaled_grads_vars, global_step=global_step
         )
 
-    logging_hook = tf.estimator.LoggingTensorHook(
-        [loss], every_n_iter=10, at_end=True
-    )
+    logging_hook = tf.estimator.LoggingTensorHook([loss], every_n_iter=10, at_end=True)
 
     return tf.estimator.EstimatorSpec(
         mode=mode,

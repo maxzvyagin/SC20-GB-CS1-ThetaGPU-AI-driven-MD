@@ -36,10 +36,10 @@ def write_rmsd(h5_file, rmsd):
         "rmsd", data=rmsd, dtype="float16", fletcher32=True, chunks=(1,)
     )
 
-def wrap(atoms):
 
+def wrap(atoms):
     def wrap_nsp10_16(positions):
-        # update the positions 
+        # update the positions
         atoms.positions = positions
         # only porting CA into nsp16
         nsp16 = atoms.segments[0].atoms

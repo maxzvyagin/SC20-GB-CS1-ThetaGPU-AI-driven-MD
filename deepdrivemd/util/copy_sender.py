@@ -115,7 +115,7 @@ class LocalCopySender(CopySender):
             return
         try:
             time = float(line.split()[1])
-        except:
+        except (ValueError, IndexError):
             logger.warning("Could not parse cp timing from stdout")
             return
         else:
@@ -159,7 +159,7 @@ class RemoteCopySender(CopySender):
             dat = line.split()
             sent_bytes = int(dat[2].strip(","))
             time = float(dat[-2])
-        except:
+        except (ValueError, IndexError):
             logger.warning("Could not parse scp performance from stdout")
             return
         else:
