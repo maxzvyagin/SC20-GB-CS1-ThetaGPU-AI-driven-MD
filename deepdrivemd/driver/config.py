@@ -169,6 +169,7 @@ class GPUTrainingUserConfig(BaseSettings):
     environ_setup: List[str] = []
 
     num_frames_per_training: int = 16_000
+    initial_weights_dir: Optional[Path]
 
     # Run params
     mode: str = "train"
@@ -188,6 +189,7 @@ class GPUTrainingRunConfig(CVAEModelConfig, GPUTrainingUserConfig):
     eval_data_dir: Path  # same as above
     global_path: Path  # files_seen36.txt
     model_dir: Path
+    checkpoint_path: Path
 
 
 class CS1TrainingUserConfig(BaseSettings):

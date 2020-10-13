@@ -112,11 +112,14 @@ def main(params):
     strategy = None
 
     # h5_dir = "/lus/theta-fs0/projects/RL-fold/braceal/bba/h5"
-    weights_dir = (
-        "/projects/RL-fold/msalim/production-runs/bba_28_case1-long/cvae_weights"
-    )
     tfrecords_dir = "/lus/theta-fs0/projects/RL-fold/braceal/bba/tfrecords"
     # embeddings_file = "/lus/theta-fs0/projects/RL-fold/braceal/bba/bba-anton-embeddings.npy"
+
+    # TODO: if params.initial_weights_dir is not None, load the checkpoint weights to
+    # resume training
+    if params.initial_weights_dir:
+        weights_file = tf.train.latest_checkpoint(params.initial_weights_dir)
+        print(f"find weights done: {weights_file}")
 
     params.fraction = 0
     # params["sim_data_dir"] = h5_dir
@@ -143,9 +146,7 @@ def main(params):
         print("train_steps:", params.train_steps)
         est.train(input_fn=simulation_tf_record_input_fn, steps=params.train_steps)
 
-    weights_file = tf.train.latest_checkpoint(weights_dir)
-
-    print(f"find weights done: {weights_file}")
+    # TODO: write the new checkpoint into params.checkpoint_path (this dir already exists!)
 
     # gen = est.predict(
     #     input_fn=data_generator,

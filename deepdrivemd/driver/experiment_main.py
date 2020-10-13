@@ -15,6 +15,9 @@ from .config import (
     OutlierDetectionUserConfig,
     OutlierDetectionRunConfig,
     LoggingConfig,
+    GPUTrainingUserConfig,
+    GPUTrainingRunConfig,
+    CVAEModelConfig,
 )
 from .cs1_manager import CS1Training
 
@@ -109,7 +112,6 @@ def dispatch_md_runs(
     for pdb_file, i in zip(
         itertools.cycle(pdb_files), range(config.md_runner.num_jobs)
     ):
-        pdb_dir = pdb_file.parent.name
         nodes, gpu_ids = manager.request(num_nodes=1, gpus_per_node=1)
         omm_dir_prefix = f"run{i:04d}"
         run = launch_md(
@@ -138,8 +140,7 @@ def dispatch_od_run(
     experiment_dir,
 ):
     nodes, gpu_ids = manager.request(
-        num_nodes=user_config.num_nodes,
-        gpus_per_node=user_config.gpus_per_node,
+        num_nodes=user_config.num_nodes, gpus_per_node=user_config.gpus_per_node,
     )
     outlier_results_dir = experiment_dir.joinpath("outlier_runs")
     outlier_results_dir.mkdir()
@@ -168,9 +169,50 @@ def dispatch_od_run(
     return od_run
 
 
-class LocalTraining:
-    def __init__(self, config: ExperimentConfig):
-        self.config = config
+def dispatch_gpu_training(
+    manager,
+    experiment_dir: Path,
+    user_config: GPUTrainingUserConfig,
+    model_config: CVAEModelConfig,
+    cvae_weights_dir: Path,
+    frames_per_h5: int,
+):
+    top_dir = experiment_dir.joinpath("gpu_training")
+    top_dir.mkdir(exist_ok=True)
+
+    config = GPUTrainingRunConfig(
+        **user_config.dict(),
+        **model_config.dict(),
+        sim_data_dir=top_dir.joinpath("h5_data"),
+        data_dir=top_dir.joinpath("records_loop"),
+        eval_data_dir=top_dir.joinpath("eval_records_loop"),
+        global_path=top_dir.joinpath("files_seen.txt"),
+        model_dir=top_dir.joinpath("model_dir"),
+        checkpoint_path=cvae_weights_dir,
+    )
+    cfg_path = top_dir.joinpath("config.yaml")
+    with open(cfg_path, "w") as fp:
+        config.dump_yaml(fp)
+
+    num_h5s, rem = divmod(config.num_frames_per_training, frames_per_h5)
+    if rem != 0:
+        raise ValueError(
+            f"frames_per_h5 {frames_per_h5} must evenly divide "
+            f"num_frames_per_training {config.num_frames_per_training}"
+        )
+
+    nodes, gpu_ids = manager.request(
+        num_nodes=user_config.num_nodes, gpus_per_node=user_config.gpus_per_node,
+    )
+    MPIRun.set_preamble_commands(*user_config.environ_setup)
+    train_run = MPIRun(
+        user_config.run_command + f" -c {fp.name}",
+        node_list=nodes,
+        ranks_per_node=1,
+        gpu_ids=gpu_ids,
+        output_file=cfg_path.with_suffix(".out"),
+    )
+    return train_run
 
 
 def main(config_filename: str):
@@ -187,6 +229,7 @@ def main(config_filename: str):
     log_fname = config.experiment_directory.joinpath("experiment_main.log").as_posix()
     config_logging(filename=log_fname, **config.logging.dict())
     logger = logging.getLogger("deepdrivemd.driver.experiment_main")
+    manager = ComputeNodeManager()
 
     if config.cs1_training is not None:
         cs1_training = CS1Training(
@@ -198,12 +241,18 @@ def main(config_filename: str):
         gpu_training = None
     elif config.gpu_training is not None:
         cs1_training = None
-        gpu_training = LocalTraining(config)
+        gpu_training = dispatch_gpu_training(
+            manager=manager,
+            user_config=config.gpu_training,
+            experiment_dir=config.experiment_directory,
+            model_config=config.cvae_model,
+            cvae_weights_dir=cvae_weights_dir,
+            frames_per_h5=config.md_runner.frames_per_h5,
+        )
     else:
         cs1_training = None
         gpu_training = None
 
-    manager = ComputeNodeManager()
     md_runs, md_dir = dispatch_md_runs(md_dir, manager, config)
     od_run = dispatch_od_run(
         manager=manager,
@@ -229,6 +278,11 @@ def main(config_filename: str):
 
     if cs1_training is not None:
         cs1_training.stop()
+    if gpu_training is not None:
+        gpu_training.process.terminate()
+        time.sleep(10)
+        gpu_training.poll()
+    od_run.process.terminate()
 
 
 if __name__ == "__main__":
