@@ -1,3 +1,4 @@
+import argparse
 from pathlib import Path
 import glob
 import tensorflow as tf
@@ -6,7 +7,8 @@ from deepdrivemd.models.symmetric_cvae.data import (
     parse_function_record_predict,
     parse_function_record,
 )
-from deepdrivemd.models.symmetric_cvae.utils import write_to_tfrecords, get_params
+from deepdrivemd.models.symmetric_cvae.utils import write_to_tfrecords
+from deepdrivemd.driver.config import GPUTrainingRunConfig
 import os
 import json
 import socket
@@ -44,47 +46,40 @@ def init_gpu_training():
 
 
 def update_dataset(params):
-    sim_data_dir = params["sim_data_dir"]
-    train_data_dir = params["data_dir"]
-    eval_data_dir = params["eval_data_dir"]
-    tfrecord_shape = params["tfrecord_shape"]
-    h5_shape = params["h5_shape"]
-    fraction = params["fraction"]
-    num_samples = params["samples_per_file"]
 
-    h5_files = glob.glob(f"{sim_data_dir}/*.h5")
+    h5_files = glob.glob(f"{params.sim_data_dir}/*.h5")
     write_to_tfrecords(
         files=h5_files,
-        initial_shape=h5_shape[1:],
-        final_shape=tfrecord_shape[1:],
-        num_samples=num_samples,
-        train_dir_path=train_data_dir,
-        eval_dir_path=eval_data_dir,
-        fraction=fraction,
+        initial_shape=params.h5_shape[1:],
+        final_shape=params.tfrecord_shape[1:],
+        num_samples=params.num_samples,
+        train_dir_path=params.train_data_dir,
+        eval_dir_path=params.eval_data_dir,
+        fraction=params.fraction,
     )
 
 
 def data_generator(params):
     dtype = tf.float16
-    tfrecord_files = Path(params["data_dir"]).glob("*.tfrecords")
+    tfrecord_files = Path(params.data_dir).glob("*.tfrecords")
     list_files = tf.data.Dataset.list_files(tfrecord_files)
     dataset = tf.data.TFRecordDataset(list_files)
 
     # TODO: We want drop_remainder=False but this needs to be rewritten:
-    dataset = dataset.batch(params["batch_size"], drop_remainder=True)
+    dataset = dataset.batch(params.batch_size, drop_remainder=True)
     parse_sample = parse_function_record_predict(
-        dtype, params["tfrecord_shape"], params["input_shape"],
+        dtype, params.tfrecord_shape, params.input_shape,
     )
     return dataset.map(parse_sample)
 
 
 def simulation_tf_record_input_fn(params):
-    batch_size = params["batch_size"]
-    input_shape = params["tfrecord_shape"]
-    final_shape = params["input_shape"]
+    batch_size = params.batch_size
+    input_shape = params.tfrecord_shape
+    final_shape = params.input_shape
     mp = True  # params["mixed_precision"]
     dtype = tf.float16 if mp else tf.float32
-    data_dir = params["data_dir"]
+    data_dir = params.data_dir
     # last_n_files = params["last_n_files"]
     files = list(glob.glob(f"{data_dir}/*.tfrecords"))
     # last_n_files = sorted(files, key=sort_string_numbers)[:last_n_files]
@@ -102,7 +97,7 @@ def simulation_tf_record_input_fn(params):
     return dataset
 
 
-def main():
+def main(params):
 
     # Congifure GPU
 
@@ -117,19 +112,17 @@ def main():
     strategy = None
 
     # h5_dir = "/lus/theta-fs0/projects/RL-fold/braceal/bba/h5"
-    yml_file = "/lus/theta-fs0/projects/RL-fold/braceal/bba/params.yaml"
     weights_dir = (
         "/projects/RL-fold/msalim/production-runs/bba_28_case1-long/cvae_weights"
     )
     tfrecords_dir = "/lus/theta-fs0/projects/RL-fold/braceal/bba/tfrecords"
     # embeddings_file = "/lus/theta-fs0/projects/RL-fold/braceal/bba/bba-anton-embeddings.npy"
 
-    params = get_params(yml_file)
-    params["fraction"] = 0
+    params.fraction = 0
     # params["sim_data_dir"] = h5_dir
-    params["data_dir"] = tfrecords_dir
-    params["eval_data_dir"] = tfrecords_dir
-    params["strategy"] = strategy
+    params.data_dir = tfrecords_dir
+    params.eval_data_dir = tfrecords_dir
+    params.strategy = strategy
 
     # update_dataset(params)
 
@@ -140,15 +133,15 @@ def main():
     est = tf.estimator.Estimator(
         model_fn,
         model_dir="/lus/theta-fs0/projects/RL-fold/braceal/bba/model",
-        params=params,
+        params=params.dict(),
         config=tf_config,
     )
 
     print("estimator creation done")
 
-    if params["mode"] == "train":
-        print("train_steps:", params["train_steps"])
-        est.train(input_fn=simulation_tf_record_input_fn, steps=params["train_steps"])
+    if params.mode == "train":
+        print("train_steps:", params.train_steps)
+        est.train(input_fn=simulation_tf_record_input_fn, steps=params.train_steps)
 
     weights_file = tf.train.latest_checkpoint(weights_dir)
 
@@ -171,4 +164,9 @@ def main():
 
 if __name__ == "__main__":
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-c", "--config-file", required=True)
+    yml_file = parser.parse_args().config_file
+    yml_file = Path(yml_file).resolve()
+    params = GPUTrainingRunConfig.from_yaml(yml_file)
+    main(params)

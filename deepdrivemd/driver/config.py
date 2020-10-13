@@ -11,6 +11,12 @@ class BaseSettings(_BaseSettings):
     def dump_yaml(self, file):
         yaml.dump(json.loads(self.json()), file, indent=4)
 
+    @classmethod
+    def from_yaml(cls, filename):
+        with open(filename) as fp:
+            raw_data = yaml.safe_load(fp)
+        return cls(**raw_data)
+
 
 class MDType(str, Enum):
     implicit = "implicit"
@@ -156,16 +162,32 @@ class GPUTrainingUserConfig(BaseSettings):
     ranks_per_node: int = 1
     gpus_per_node: int = 8
     run_command: str = (
-        "singularity exec --nv -B /lus:/lus /lus/theta-fs0/projects/datascience/thetaGPU/containers/tf1_20.08-py3.sif bash"
         "singularity run -B /lus:/lus:rw --nv "
         "/lus/theta-fs0/projects/RL-fold/msalim/tensorflow_20.09-tf1-py3.sif "
-        "/lus/theta-fs0/projects/RL-fold/msalim/tf1-ngc-env/bin/python -m deepdrivemd.outlier.lof "
+        "/lus/theta-fs0/projects/RL-fold/msalim/tf1-ngc-env/bin/python -m deepdrivemd.models.symmetric_cvae.predict"
     )
     environ_setup: List[str] = []
 
+    num_frames_per_training: int = 16_000
+
+    # Run params
+    mode: str = "train"
+    train_steps: int = 10
+    eval_steps: int = 2
+    runconfig_params: Dict[str, int] = {
+        "save_checkpoints_steps": 10,
+        "keep_checkpoint_max": 3,
+        "save_summary_steps": 10,
+        "log_step_count_steps": 10,
+    }
+
 
 class GPUTrainingRunConfig(CVAEModelConfig, GPUTrainingUserConfig):
-    pass
+    sim_data_dir: Path
+    data_dir: Path  # a tfrecords dir
+    eval_data_dir: Path  # same as above
+    global_path: Path  # files_seen36.txt
+    model_dir: Path
 
 
 class CS1TrainingUserConfig(BaseSettings):
