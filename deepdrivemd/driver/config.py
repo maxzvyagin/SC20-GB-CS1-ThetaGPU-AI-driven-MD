@@ -3,7 +3,6 @@ import json
 import yaml
 from enum import Enum
 from pydantic import BaseSettings as _BaseSettings
-from pydantic import validator
 from pathlib import Path
 from typing import Optional, List, Dict
 
@@ -153,8 +152,16 @@ class OutlierDetectionRunConfig(OutlierDetectionUserConfig):
 
 
 class GPUTrainingUserConfig(BaseSettings):
-    horovod_num_ranks: int = 1
-    horovod_num_ranks_per_node: int = 1
+    num_nodes: int = 1
+    ranks_per_node: int = 1
+    gpus_per_node: int = 8
+    run_command: str = (
+        "singularity exec --nv -B /lus:/lus /lus/theta-fs0/projects/datascience/thetaGPU/containers/tf1_20.08-py3.sif bash"
+        "singularity run -B /lus:/lus:rw --nv "
+        "/lus/theta-fs0/projects/RL-fold/msalim/tensorflow_20.09-tf1-py3.sif "
+        "/lus/theta-fs0/projects/RL-fold/msalim/tf1-ngc-env/bin/python -m deepdrivemd.outlier.lof "
+    )
+    environ_setup: List[str] = []
 
 
 class GPUTrainingRunConfig(CVAEModelConfig, GPUTrainingUserConfig):
