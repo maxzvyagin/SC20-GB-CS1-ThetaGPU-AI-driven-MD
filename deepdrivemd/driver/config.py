@@ -68,10 +68,10 @@ class MDRunnerConfig(BaseSettings):
     initial_configs_dir: Path
     reference_pdb_file: Optional[Path]
     sim_type: MDType
-    frames_per_h5: int = 1024
     temperature_kelvin: float = 310.0
     simulation_length_ns: float = 10
     report_interval_ps: float = 50
+    frames_per_h5: int = 1024
     wrap: bool = False
     local_run_dir: Path = Path("/raid/scratch")
     md_run_command: str = "python run_openmm.py"
@@ -82,11 +82,11 @@ class MDRunnerConfig(BaseSettings):
     ]
 
     @validator("frames_per_h5")
-    def frames_per_h5_validator(cls, v):
+    def frames_per_h5_validator(cls, v, values):
         """If this condition is not met, there will be wasted MD data since not all
         reports will be written to H5 due to the batching in the H5 reporter."""
-        total_frames = cls.simulation_length_ns * u.nanoseconds
-        total_frames /= cls.report_interval_ps * u.picoseconds
+        total_frames = values["simulation_length_ns"] * u.nanoseconds
+        total_frames /= values["report_interval_ps"] * u.picoseconds
         if total_frames % v != 0:
             raise ValueError(
                 "frames_per_h5 must evenly divide the total number of frames reported i.e. "
