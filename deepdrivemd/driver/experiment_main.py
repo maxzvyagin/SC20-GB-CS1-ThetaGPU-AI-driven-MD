@@ -8,7 +8,6 @@ from pathlib import Path
 
 from .mpi_launcher import ComputeNodeManager, MPIRun, ComputeNode
 from .config import (
-    read_yaml_config,
     MDConfig,
     MDRunnerConfig,
     ExperimentConfig,
@@ -218,7 +217,7 @@ def dispatch_gpu_training(
 def main(config_filename: str):
     global logger
     start = time.time()
-    config = read_yaml_config(config_filename)
+    config = ExperimentConfig.from_yaml(config_filename)
 
     config.experiment_directory.mkdir(exist_ok=False)
     md_dir = config.experiment_directory.joinpath("md_runs")

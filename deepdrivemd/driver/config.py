@@ -4,7 +4,10 @@ import yaml
 from enum import Enum
 from pydantic import BaseSettings as _BaseSettings
 from pathlib import Path
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Union
+from typing import TypeVar, Type
+
+_T = TypeVar("_T")
 
 
 class BaseSettings(_BaseSettings):
@@ -12,7 +15,7 @@ class BaseSettings(_BaseSettings):
         yaml.dump(json.loads(self.json()), file, indent=4)
 
     @classmethod
-    def from_yaml(cls, filename):
+    def from_yaml(cls: Type[_T], filename: Union[str, Path]) -> _T:
         with open(filename) as fp:
             raw_data = yaml.safe_load(fp)
         return cls(**raw_data)
@@ -233,12 +236,6 @@ class ExperimentConfig(BaseSettings):
     cvae_model: CVAEModelConfig
     gpu_training: Optional[GPUTrainingUserConfig] = None
     cs1_training: Optional[CS1TrainingUserConfig] = None
-
-
-def read_yaml_config(fname: str) -> ExperimentConfig:
-    with open(fname) as fp:
-        data = yaml.safe_load(fp)
-    return ExperimentConfig(**data)
 
 
 def generate_sample_config():
