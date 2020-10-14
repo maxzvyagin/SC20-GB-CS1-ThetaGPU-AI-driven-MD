@@ -205,7 +205,7 @@ class GPUTrainingUserConfig(BaseSettings):
     run_command: str = (
         "singularity run -B /lus:/lus:rw --nv "
         "/lus/theta-fs0/projects/RL-fold/msalim/tensorflow_20.09-tf1-py3.sif "
-        "/lus/theta-fs0/projects/RL-fold/msalim/tf1-ngc-env/bin/python -m deepdrivemd.models.symmetric_cvae.predict"
+        "/lus/theta-fs0/projects/RL-fold/msalim/tf1-ngc-env/bin/python -m deepdrivemd.models.symmetric_cvae.train_gpu"
     )
     environ_setup: List[str] = []
 

@@ -1,0 +1,130 @@
+experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/production-runs/bba_28_case1
+walltime_min: 150
+
+md_runner:
+    frames_per_h5: 128
+    initial_configs_dir: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/1FME
+    local_run_dir: /raid/scratch
+    md_environ_setup:
+        - eval "$(/lus/theta-fs0/projects/RL-fold/msalim/miniconda3/bin/conda shell.bash
+          hook)"
+        - conda activate /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm
+        - export PYTHONPATH=/lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD:$PYTHONPATH
+    md_run_command: /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm/bin/python -m deepdrivemd.sim.run_openmm
+    num_jobs: 160
+    temperature_kelvin: 310.0
+    reference_pdb_file: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/1FME/1FME-folded.pdb
+    report_interval_ps: 50.0
+    sim_type: implicit
+    simulation_length_ns: 10.0
+
+outlier_detection:
+    environ_setup: []
+    extrinsic_outlier_score: rmsd_to_reference_state
+    gpus_per_node: 8
+    local_scratch_dir: /raid/scratch
+    max_num_old_h5_files: 40
+    num_nodes: 1
+    num_outliers: 500
+    ranks_per_node: 1
+    run_command: "singularity run -B /lus:/lus:rw -B /raid:/raid:rw --nv /lus/theta-fs0/projects/RL-fold/msalim/tensorflow_20.09-tf1-py3.sif /lus/theta-fs0/projects/RL-fold/msalim/tf1-ngc-env/bin/python -m deepdrivemd.outlier.lof"
+    sklearn_num_cpus: 16
+
+gpu_training: # start with 20480 and supplement with 20480 at a time (4096 eval, 16384 train)
+    num_nodes: 1
+    ranks_per_node: 1
+    gpus_per_node: 8
+    strategy: multi_gpu
+    eval_steps: 16 # 512*16=8192 samples
+    mode: train
+    num_frames_per_training: 20480 # 160 files (128 per file)
+    runconfig_params:
+        keep_checkpoint_max: 1
+        log_step_count_steps: 32
+        save_checkpoints_steps: 320
+        save_summary_steps: 32
+    train_steps: 6400 # 100 epochs, 1 epoch is 32768 samples->64 steps
+
+cvae_model:
+    activation: relu
+    metrics: False
+    allowed_optimizers:
+        - sgd
+        - sgdm
+        - adam
+        - rmsprop
+    batch_size: 512
+    beta1: 0.2
+    beta2: 0.9
+    data_random_seed: null
+    dec_conv_filters:
+        - 100
+        - 100
+        - 100
+        - 100
+    dec_conv_kernels:
+        - 5
+        - 5
+        - 5
+        - 5
+    dec_conv_strides:
+        - 1
+        - 1
+        - 1
+        - 1
+    decay: 0.9
+    dense_units: 64
+    enc_conv_filters:
+        - 100
+        - 100
+        - 100
+        - 100
+    enc_conv_kernels:
+        - 5
+        - 5
+        - 5
+        - 5
+    enc_conv_strides:
+        - 1
+        - 1
+        - 1
+        - 1
+    epsilon: 1.0e-08
+    fraction: 0.2
+    full_precision_loss: false
+    h5_shape:
+        - 1
+        - 28
+        - 28
+    input_shape:
+        - 1
+        - 28
+        - 28
+    itemsize: 1
+    kl_loss_reduction_type: sum
+    last_n_files: 32 # 1024 samples per file, per epoch 32768 samples
+    last_n_files_eval: 8 # 1024 samples per file, per epoch 8192 samples
+    latent_ndim: 10
+    learning_rate: 2.0e-05
+    loss_scale: 1.0
+    mixed_precision: true
+    model_random_seed: null
+    momentum: 0.9
+    optimizer_name: rmsprop
+    reconstruction_loss_reduction_type: sum
+    samples_per_file: 1024 # 20 files per transfer (16 train, 4 eval)
+    tfrecord_shape:
+        - 1
+        - 28
+        - 28
+
+gpu_training: null
+
+logging:
+    buffer_num_records: 1024
+    datefmt: "%d-%b-%Y %H:%M:%S"
+    flush_period: 30
+    format:
+        "%(asctime)s|%(process)d|%(thread)d|%(levelname)8s|%(name)s:%(lineno)s]
+        %(message)s"
+    level: DEBUG
