@@ -207,7 +207,7 @@ def dispatch_gpu_training(
     )
     MPIRun.set_preamble_commands(*user_config.environ_setup)
     train_run = MPIRun(
-        user_config.run_command + f" -c {fp.name}",
+        user_config.run_command + f" -c {cfg_path}",
         node_list=nodes,
         ranks_per_node=1,
         gpu_ids=gpu_ids,
