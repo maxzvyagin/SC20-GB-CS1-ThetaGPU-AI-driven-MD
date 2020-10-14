@@ -1,7 +1,9 @@
 # Schema of the YAML experiment file
 import json
 import yaml
+import simtk.unit as u
 from enum import Enum
+from pydantic import validator
 from pydantic import BaseSettings as _BaseSettings
 from pathlib import Path
 from typing import Optional, List, Dict, Union
@@ -78,6 +80,19 @@ class MDRunnerConfig(BaseSettings):
         "conda activate /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm",
         "export PYTHONPATH=/lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD:$PYTHONPATH",
     ]
+
+    @validator("frames_per_h5")
+    def frames_per_h5_validator(cls, v):
+        """If this condition is not met, there will be wasted MD data since not all
+        reports will be written to H5 due to the batching in the H5 reporter."""
+        total_frames = cls.simulation_length_ns * u.nanoseconds
+        total_frames /= cls.report_interval_ps * u.picoseconds
+        if total_frames % v != 0:
+            raise ValueError(
+                "frames_per_h5 must evenly divide the total number of frames reported i.e. "
+                "(simulation_length_ns / report_interval_ps) %% frames_per_h5 == 0)"
+            )
+        return v
 
 
 class CVAEModelConfig(BaseSettings):

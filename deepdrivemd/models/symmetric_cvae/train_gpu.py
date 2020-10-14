@@ -68,7 +68,9 @@ def data_generator(params: GPUTrainingRunConfig):
     # TODO: We want drop_remainder=False but this needs to be rewritten:
     dataset = dataset.batch(params.batch_size, drop_remainder=True)
     parse_sample = parse_function_record_predict(
-        dtype, params.tfrecord_shape, params.input_shape,
+        dtype,
+        params.tfrecord_shape,
+        params.input_shape,
     )
     return dataset.map(parse_sample)
 
@@ -88,7 +90,9 @@ def simulation_tf_record_input_fn(params: GPUTrainingRunConfig):
     dataset = dataset.batch(batch_size, drop_remainder=True)
     parse_sample = parse_function_record(dtype, input_shape, final_shape)
     dataset = dataset.map(parse_sample)
-    dataset = dataset.shuffle(10,)
+    dataset = dataset.shuffle(
+        10,
+    )
     dataset = dataset.repeat()
     dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
     # Distirbute data set over workers
@@ -132,7 +136,8 @@ def main(params: GPUTrainingRunConfig):
     print("Update dataset done")
 
     tf_config = tf.estimator.RunConfig(
-        train_distribute=strategy, **params.runconfig_params,
+        train_distribute=strategy,
+        **params.runconfig_params,
     )
 
     est = tf.estimator.Estimator(
