@@ -135,7 +135,8 @@ def dispatch_od_run(
     experiment_dir,
 ):
     nodes, gpu_ids = manager.request(
-        num_nodes=user_config.num_nodes, gpus_per_node=user_config.gpus_per_node,
+        num_nodes=user_config.num_nodes,
+        gpus_per_node=user_config.gpus_per_node,
     )
     outlier_results_dir = experiment_dir.joinpath("outlier_runs")
     outlier_results_dir.mkdir()
@@ -201,7 +202,8 @@ def dispatch_gpu_training(
         config.dump_yaml(fp)
 
     nodes, gpu_ids = manager.request(
-        num_nodes=user_config.num_nodes, gpus_per_node=user_config.gpus_per_node,
+        num_nodes=user_config.num_nodes,
+        gpus_per_node=user_config.gpus_per_node,
     )
     MPIRun.set_preamble_commands(*user_config.environ_setup)
     train_run = MPIRun(
@@ -221,7 +223,7 @@ def main(config_filename: str):
 
     config.experiment_directory.mkdir(exist_ok=False)
     md_dir = config.experiment_directory.joinpath("md_runs")
-    model_weights_dir = config.experiment_directory.joinpath("cvae_weights")
+    model_weights_dir = config.experiment_directory.joinpath("model_weights")
     model_weights_dir.mkdir()
     md_dir.mkdir()
 
