@@ -1,7 +1,6 @@
 # Schema of the YAML experiment file
 import json
 import yaml
-import simtk.unit as u
 from enum import Enum
 from pydantic import validator
 from pydantic import BaseSettings as _BaseSettings
@@ -26,6 +25,13 @@ class BaseSettings(_BaseSettings):
 class MDType(str, Enum):
     implicit = "implicit"
     explicit = "explicit"
+
+
+class H5FrameGranularity(str, Enum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+    auto = "auto"
 
 
 class LoggingConfig(BaseSettings):
@@ -71,7 +77,7 @@ class MDRunnerConfig(BaseSettings):
     temperature_kelvin: float = 310.0
     simulation_length_ns: float = 10
     report_interval_ps: float = 50
-    frames_per_h5: int = 1024
+    frames_per_h5: Union[int, H5FrameGranularity] = H5FrameGranularity.auto
     wrap: bool = False
     local_run_dir: Path = Path("/raid/scratch")
     md_run_command: str = "python run_openmm.py"
@@ -85,8 +91,19 @@ class MDRunnerConfig(BaseSettings):
     def frames_per_h5_validator(cls, v, values):
         """If this condition is not met, there will be wasted MD data since not all
         reports will be written to H5 due to the batching in the H5 reporter."""
-        total_frames = values["simulation_length_ns"] * u.nanoseconds
-        total_frames /= values["report_interval_ps"] * u.picoseconds
+        total_frames = (
+            1000 * values["simulation_length_ns"] / values["report_interval_ps"]
+        )
+        if v == H5FrameGranularity.auto:
+            v = total_frames
+        # TODO: come up with a good value for each of these:
+        elif v == H5FrameGranularity.low:
+            v = total_frames
+        elif v == H5FrameGranularity.medium:
+            v = total_frames
+        elif v == H5FrameGranularity.high:
+            v = total_frames
+
         if total_frames % v != 0:
             raise ValueError(
                 "frames_per_h5 must evenly divide the total number of frames reported i.e. "
