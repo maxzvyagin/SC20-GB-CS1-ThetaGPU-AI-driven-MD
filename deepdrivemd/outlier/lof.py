@@ -10,7 +10,6 @@ import queue
 import numpy as np
 import itertools
 
-import tensorflow as tf
 import h5py
 
 import MDAnalysis as mda
@@ -27,7 +26,6 @@ from deepdrivemd.outlier.utils import find_frame
 import logging
 
 logger = None
-tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.DEBUG)
 
 
 def get_config():
@@ -45,22 +43,19 @@ class OutlierDetectionContext:
         local_scratch_dir: Path,
         outlier_results_dir: Path,
         md_dir: Path,
-        cvae_dir: Path,
+        model_weights_dir: Path,
         max_num_old_h5_files: int,
         model_params: dict,
         outlier_predict_batch_size: int,
         **kwargs,
     ):
         self.md_dir = Path(md_dir).resolve()
-        self.cvae_dir = Path(cvae_dir).resolve()
+        self.model_weights_dir = Path(model_weights_dir).resolve()
 
         self._local_scratch_dir = local_scratch_dir
         self._outlier_results_dir = outlier_results_dir
-        self.tfrecords_dir = local_scratch_dir.joinpath("tfrecords")
-        self.tfrecords_dir.mkdir(exist_ok=True)
         self._seen_h5_files_set = set()
 
-        self.cvae_weights_file = None
         self._last_acquired_cvae_lock = None
         self._md_input_dirs = None
         self._h5_dcd_map = {}
@@ -70,7 +65,10 @@ class OutlierDetectionContext:
         self.max_num_old_h5_files = max_num_old_h5_files
         self._seen_outliers = set()
         self.model = TFEstimatorModel(
-            self.tfrecords_dir, model_params, outlier_predict_batch_size
+            local_scratch_dir,
+            model_params,
+            outlier_predict_batch_size,
+            self.model_weights_dir,
         )
 
     @property
@@ -190,16 +188,12 @@ class OutlierDetectionContext:
             if got_new_h5 < 80:
                 time.sleep(10)
 
-    def update_model(self):
-        """Gets most recent model weights."""
-        while True:
-            self.cvae_weights_file = tf.train.latest_checkpoint(self.cvae_dir)
-            if self.cvae_weights_file is not None:
-                break
+    def await_model_weights(self):
+        """Blocks until model has weights"""
+        while self.model.get_weights_file() is None:
             logger.debug("Outlier detection waiting for model checkpoint file")
             time.sleep(10)
         time.sleep(10)
-        self.cvae_weights_file = tf.train.latest_checkpoint(self.cvae_dir)
 
     @property
     def h5_length(self):
@@ -274,11 +268,9 @@ def main():
 
         # NOTE: It's up to the ML service to do model selection;
         # we're assuming the latest cvae weights file has the best model
-        ctx.update_model()
+        ctx.await_model_weights()
 
-        assert ctx.cvae_weights_file is not None
-        logger.info(f"start model prediction with weights: {ctx.cvae_weights_file}")
-        embeddings = ctx.model.predict(model_input_data, ctx.cvae_weights_file,)
+        embeddings = ctx.model.predict(model_input_data)
         logger.info(f"end model prediction: generated {len(embeddings)} embeddings")
 
         logger.info(

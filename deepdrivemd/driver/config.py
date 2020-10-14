@@ -187,7 +187,7 @@ class OutlierDetectionRunConfig(OutlierDetectionUserConfig):
     logging: LoggingConfig
     model_params: CVAEModelConfig
     md_dir: Path
-    cvae_dir: Path
+    model_weights_dir: Path
     walltime_min: int
     outlier_predict_batch_size: int
 

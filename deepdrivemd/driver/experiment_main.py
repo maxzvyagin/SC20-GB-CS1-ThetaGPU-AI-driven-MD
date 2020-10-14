@@ -134,7 +134,7 @@ def dispatch_od_run(
     outlier_predict_batch_size: int,
     logging_cfg,
     model_params,
-    cvae_dir,
+    model_weights_dir,
     walltime_min,
     experiment_dir,
 ):
@@ -147,7 +147,7 @@ def dispatch_od_run(
         logging=logging_cfg,
         model_params=model_params,
         md_dir=md_dir,
-        cvae_dir=cvae_dir,
+        model_weights_dir=model_weights_dir,
         walltime_min=walltime_min,
         outlier_predict_batch_size=outlier_predict_batch_size,
         outlier_results_dir=outlier_results_dir,
@@ -173,7 +173,7 @@ def dispatch_gpu_training(
     experiment_dir: Path,
     user_config: GPUTrainingUserConfig,
     model_config: CVAEModelConfig,
-    cvae_weights_dir: Path,
+    model_weights_dir: Path,
     frames_per_h5: int,
 ):
     top_dir = experiment_dir.joinpath("gpu_training")
@@ -187,7 +187,7 @@ def dispatch_gpu_training(
         eval_data_dir=top_dir.joinpath("eval_records_loop"),
         global_path=top_dir.joinpath("files_seen.txt"),
         model_dir=top_dir.joinpath("model_dir"),
-        checkpoint_path=cvae_weights_dir,
+        checkpoint_path=model_weights_dir,
     )
     cfg_path = top_dir.joinpath("config.yaml")
     with open(cfg_path, "w") as fp:
@@ -221,8 +221,8 @@ def main(config_filename: str):
 
     config.experiment_directory.mkdir(exist_ok=False)
     md_dir = config.experiment_directory.joinpath("md_runs")
-    cvae_weights_dir = config.experiment_directory.joinpath("cvae_weights")
-    cvae_weights_dir.mkdir()
+    model_weights_dir = config.experiment_directory.joinpath("cvae_weights")
+    model_weights_dir.mkdir()
     md_dir.mkdir()
 
     log_fname = config.experiment_directory.joinpath("experiment_main.log").as_posix()
@@ -234,7 +234,7 @@ def main(config_filename: str):
         cs1_training = CS1Training(
             config.cs1_training,
             config.cvae_model,
-            cvae_weights_dir,
+            model_weights_dir,
             config.md_runner.frames_per_h5,
         )
         gpu_training = None
@@ -245,7 +245,7 @@ def main(config_filename: str):
             user_config=config.gpu_training,
             experiment_dir=config.experiment_directory,
             model_config=config.cvae_model,
-            cvae_weights_dir=cvae_weights_dir,
+            model_weights_dir=model_weights_dir,
             frames_per_h5=config.md_runner.frames_per_h5,
         )
     else:
@@ -259,7 +259,7 @@ def main(config_filename: str):
         md_dir=md_dir,
         logging_cfg=config.logging,
         model_params=config.cvae_model,
-        cvae_dir=cvae_weights_dir,
+        model_weights_dir=model_weights_dir,
         walltime_min=config.walltime_min,
         experiment_dir=config.experiment_directory,
         outlier_predict_batch_size=config.md_runner.frames_per_h5,
