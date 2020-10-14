@@ -16,6 +16,7 @@ Then, install pre-commit hooks: this will auto-format and auto-lint _on commit_ 
 
 ```
 pre-commit install
+pre-commit autoupdate
 ```
 
 ### Generating a YAML input spec:
