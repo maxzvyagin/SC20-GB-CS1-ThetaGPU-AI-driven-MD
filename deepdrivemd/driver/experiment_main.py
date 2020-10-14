@@ -175,6 +175,7 @@ def dispatch_gpu_training(
 ):
     top_dir = experiment_dir.joinpath("gpu_training")
     top_dir.mkdir(exist_ok=True)
+    logger.info(f"Created gpu train dir: {top_dir}")
 
     num_h5s, rem = divmod(user_config.num_frames_per_training, frames_per_h5)
     if rem != 0:
@@ -230,6 +231,7 @@ def main(config_filename: str):
     manager = ComputeNodeManager()
 
     if config.cs1_training is not None:
+        logger.info("Dispatching CS1 Training")
         cs1_training = CS1Training(
             config.cs1_training,
             config.cvae_model,
@@ -241,6 +243,7 @@ def main(config_filename: str):
         h5_dest = remote_experiment_path.joinpath("h5_data")
         h5_scp_path = f"{config.cs1_training.hostname}:{h5_dest}"
     elif config.gpu_training is not None:
+        logger.info("Dispatching GPU Training")
         cs1_training = None
         gpu_training = dispatch_gpu_training(
             manager=manager,
@@ -257,6 +260,7 @@ def main(config_filename: str):
             .as_posix()
         )
     else:
+        logger.info("Training is disabled for this run")
         cs1_training = None
         gpu_training = None
         h5_scp_path = None
