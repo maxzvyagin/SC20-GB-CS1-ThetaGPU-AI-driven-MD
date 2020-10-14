@@ -90,7 +90,10 @@ def launch_md(
 
 
 def dispatch_md_runs(
-    md_dir: Path, manager: ComputeNodeManager, config: ExperimentConfig
+    md_dir: Path,
+    manager: ComputeNodeManager,
+    config: ExperimentConfig,
+    h5_scp_path: Optional[str],
 ) -> Tuple[List[MPIRun], Path]:
     """
     Launch the full set of MD Runs for this experiment
@@ -100,13 +103,6 @@ def dispatch_md_runs(
 
     pdb_files = list(config.md_runner.initial_configs_dir.glob("*/*.pdb"))
     random.shuffle(pdb_files)
-
-    if config.cs1_training is not None:
-        remote_experiment_path = config.cs1_training.medulla_experiment_path
-        h5_dest = remote_experiment_path.joinpath("h5_data")
-        h5_scp_path = f"{config.cs1_training.hostname}:{h5_dest}"
-    else:
-        h5_scp_path = None
 
     for pdb_file, i in zip(
         itertools.cycle(pdb_files), range(config.md_runner.num_jobs)
@@ -175,9 +171,17 @@ def dispatch_gpu_training(
     model_config: CVAEModelConfig,
     model_weights_dir: Path,
     frames_per_h5: int,
+    logging_cfg,
 ):
     top_dir = experiment_dir.joinpath("gpu_training")
     top_dir.mkdir(exist_ok=True)
+
+    num_h5s, rem = divmod(user_config.num_frames_per_training, frames_per_h5)
+    if rem != 0:
+        raise ValueError(
+            f"frames_per_h5 {frames_per_h5} must evenly divide "
+            f"num_frames_per_training {user_config.num_frames_per_training}"
+        )
 
     config = GPUTrainingRunConfig(
         **user_config.dict(),
@@ -188,17 +192,12 @@ def dispatch_gpu_training(
         global_path=top_dir.joinpath("files_seen.txt"),
         model_dir=top_dir.joinpath("model_dir"),
         checkpoint_path=model_weights_dir,
+        logging=logging_cfg,
+        num_h5s_per_training=num_h5s,
     )
     cfg_path = top_dir.joinpath("config.yaml")
     with open(cfg_path, "w") as fp:
         config.dump_yaml(fp)
-
-    num_h5s, rem = divmod(config.num_frames_per_training, frames_per_h5)
-    if rem != 0:
-        raise ValueError(
-            f"frames_per_h5 {frames_per_h5} must evenly divide "
-            f"num_frames_per_training {config.num_frames_per_training}"
-        )
 
     nodes, gpu_ids = manager.request(
         num_nodes=user_config.num_nodes, gpus_per_node=user_config.gpus_per_node,
@@ -238,6 +237,9 @@ def main(config_filename: str):
             config.md_runner.frames_per_h5,
         )
         gpu_training = None
+        remote_experiment_path = config.cs1_training.medulla_experiment_path
+        h5_dest = remote_experiment_path.joinpath("h5_data")
+        h5_scp_path = f"{config.cs1_training.hostname}:{h5_dest}"
     elif config.gpu_training is not None:
         cs1_training = None
         gpu_training = dispatch_gpu_training(
@@ -247,12 +249,19 @@ def main(config_filename: str):
             model_config=config.cvae_model,
             model_weights_dir=model_weights_dir,
             frames_per_h5=config.md_runner.frames_per_h5,
+            logging_cfg=config.logging,
+        )
+        h5_scp_path = (
+            config.experiment_directory.joinpath("gpu_training")
+            .joinpath("h5_data")
+            .as_posix()
         )
     else:
         cs1_training = None
         gpu_training = None
+        h5_scp_path = None
 
-    md_runs, md_dir = dispatch_md_runs(md_dir, manager, config)
+    md_runs, md_dir = dispatch_md_runs(md_dir, manager, config, h5_scp_path)
     od_run = dispatch_od_run(
         manager=manager,
         user_config=config.outlier_detection,

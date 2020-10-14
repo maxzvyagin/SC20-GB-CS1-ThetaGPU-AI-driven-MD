@@ -77,7 +77,7 @@ class MDRunnerConfig(BaseSettings):
     temperature_kelvin: float = 310.0
     simulation_length_ns: float = 10
     report_interval_ps: float = 50
-    frames_per_h5: Union[int, H5FrameGranularity] = H5FrameGranularity.auto
+    frames_per_h5: int = H5FrameGranularity.auto
     wrap: bool = False
     local_run_dir: Path = Path("/raid/scratch")
     md_run_command: str = "python run_openmm.py"
@@ -87,7 +87,7 @@ class MDRunnerConfig(BaseSettings):
         "export PYTHONPATH=/lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD:$PYTHONPATH",
     ]
 
-    @validator("frames_per_h5")
+    @validator("frames_per_h5", always=True, pre=True)
     def frames_per_h5_validator(cls, v, values):
         """If this condition is not met, there will be wasted MD data since not all
         reports will be written to H5 due to the batching in the H5 reporter."""
@@ -192,6 +192,12 @@ class OutlierDetectionRunConfig(OutlierDetectionUserConfig):
     outlier_predict_batch_size: int
 
 
+class GPUTrainStrategy(str, Enum):
+    single_gpu = "single_gpu"
+    horovod = "horovod"
+    multi_gpu = "multi_gpu"
+
+
 class GPUTrainingUserConfig(BaseSettings):
     num_nodes: int = 1
     ranks_per_node: int = 1
@@ -216,6 +222,7 @@ class GPUTrainingUserConfig(BaseSettings):
         "save_summary_steps": 10,
         "log_step_count_steps": 10,
     }
+    strategy: GPUTrainStrategy = GPUTrainStrategy.single_gpu
 
 
 class GPUTrainingRunConfig(CVAEModelConfig, GPUTrainingUserConfig):
@@ -225,6 +232,8 @@ class GPUTrainingRunConfig(CVAEModelConfig, GPUTrainingUserConfig):
     global_path: Path  # files_seen36.txt
     model_dir: Path
     checkpoint_path: Path
+    logging: LoggingConfig
+    num_h5s_per_training: int
 
 
 class CS1TrainingUserConfig(BaseSettings):
@@ -276,7 +285,7 @@ def generate_sample_config():
         initial_configs_dir="/path/to/initial_pdbs_and_tops",
         reference_pdb_file="/path/to/reference.pdb",
         sim_type="explicit",
-        frames_per_h5=1024,
+        frames_per_h5="auto",
     )
     model = CVAEModelConfig()
     logging = LoggingConfig()
