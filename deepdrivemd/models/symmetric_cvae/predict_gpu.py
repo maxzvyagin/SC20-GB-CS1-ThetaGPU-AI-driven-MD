@@ -3,6 +3,7 @@ Copyright 2019 Cerebras Systems.
 
 GPU training script for the ANL GravWave model.
 """
+from pathlib import Path
 import logging
 from typing import Optional
 import numpy as np
@@ -18,7 +19,13 @@ logger = logging.getLogger(__name__)
 
 
 class TFEstimatorModel:
-    def __init__(self, workdir, model_params, predict_batch_size, checkpoint_dir):
+    def __init__(
+        self,
+        workdir: Path,
+        model_params: dict,
+        predict_batch_size: int,
+        checkpoint_dir: Path,
+    ):
         self._tfrecords_dir = workdir.joinpath("tfrecords")
         self._tfrecords_dir.mkdir(exist_ok=True)
         self._model_params = model_params
@@ -75,7 +82,7 @@ class TFEstimatorModel:
     def predict(self, input_data):
         weights_file = self.get_weights_file()
         logger.info(f"start model prediction with weights: {weights_file}")
-        params = self._model_params.dict()
+        params = self._model_params
         params["sim_data_dir"] = self._tfrecords_dir.as_posix()
         params["data_dir"] = self._tfrecords_dir.as_posix()
         params["eval_data_dir"] = self._tfrecords_dir.as_posix()
@@ -86,7 +93,11 @@ class TFEstimatorModel:
         params["batch_size"] = self._predict_batch_size
 
         tf_config = tf.estimator.RunConfig()
-        est = tf.estimator.Estimator(model_fn, params=params, config=tf_config,)
+        est = tf.estimator.Estimator(
+            model_fn,
+            params=params,
+            config=tf_config,
+        )
         gen = est.predict(
             input_fn=input_data,
             checkpoint_path=weights_file,
