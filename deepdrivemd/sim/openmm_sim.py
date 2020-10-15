@@ -201,6 +201,8 @@ class SimulationContext:
         if self.reference_pdb_file is not None:
             self._fields.append("rmsd")
 
+        logger.info(f"SimulationContext: {self.__dict__}")
+
     @property
     def sim_prefix(self):
         """
