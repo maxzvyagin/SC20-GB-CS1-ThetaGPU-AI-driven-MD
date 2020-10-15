@@ -54,6 +54,8 @@ class OutlierDetectionContext:
 
         self._local_scratch_dir = local_scratch_dir
         self._outlier_results_dir = outlier_results_dir
+        self._outlier_pdbs_dir = outlier_results_dir.joinpath("outlier_pdbs")
+        self._outlier_pdbs_dir.mkdir()
         self._seen_h5_files_set = set()
 
         self._last_acquired_cvae_lock = None
@@ -107,22 +109,36 @@ class OutlierDetectionContext:
 
     def _get_outlier(self):
         try:
-            _, outlier = self._pdb_outlier_queue.get(block=False)
+            score, outlier = self._pdb_outlier_queue.get(block=False)
         except queue.Empty:
             return None
         else:
-            return outlier
+            return score, outlier
 
     def get_open_md_input_slots(self):
         return [d for d in self.md_input_dirs if not list(d.glob("*.pdb"))]
 
-    def send(self):
+    def send_outliers(self):
         # Blocks until all PDBs are sent
         md_dirs = self.get_open_md_input_slots()
         logger.info(f"Sending new outlier pdbs to {len(md_dirs)} dirs")
+
+        outliers = []
         with ThreadPoolExecutor(max_workers=8) as ex:
-            for _ in ex.map(self.dispatch_next_outlier, md_dirs):
-                pass
+            for data in ex.map(self.dispatch_next_outlier, md_dirs):
+                if data is not None:
+                    outliers.append(data)
+        return outliers
+
+    def backup_pdbs(self, filenames):
+        logger.info(
+            f"Moving {len(filenames)} pdb files from local storage to {self._outlier_pdbs_dir}"
+        )
+        start = time.time()
+        for pdb_file in filenames:
+            shutil.move(pdb_file, self._outlier_pdbs_dir)
+        elapsed = time.time() - start
+        logger.info(f"Moved {len(filenames)} pdb files in {elapsed:.2f} seconds")
 
     def generate_pdb_file(self, dcd_filename: Path, frame_index: int) -> Path:
         logger.debug(
@@ -155,22 +171,36 @@ class OutlierDetectionContext:
         return outlier_pdb_file
 
     def dispatch_next_outlier(self, input_dir):
-        outlier = self._get_outlier()
-        if outlier is None:
-            return
+        item = self._get_outlier()
+        if item is None:
+            return None
 
+        score, outlier = item
+        created_time, extrinsic_score, intrinsic_score = score
         dcd_filename, frame_index = outlier
+        created_time *= -1
+
         logger.debug(f"Creating outlier .pdb from {dcd_filename} frame {frame_index}")
         outlier_pdb_file = self.generate_pdb_file(dcd_filename, frame_index)
         logger.debug("outlier .pdb write done")
         target = input_dir.joinpath(outlier_pdb_file.name)
+
         logger.debug(f"Acquiring FileLock to write {target}")
         with FileLock(target):
             logger.debug(f"FileLock acquired")
             start = time.perf_counter()
-            shutil.move(outlier_pdb_file.as_posix(), target)
+            shutil.copy(outlier_pdb_file.as_posix(), target)
             elapsed = time.perf_counter() - start
-            logger.debug(f"shutil.move wrote {target.name} in {elapsed:.2f} seconds")
+            logger.debug(f"shutil.copy wrote {target} in {elapsed:.2f} seconds")
+
+        return {
+            "created_time": created_time,
+            "extrinisic_score": extrinsic_score,
+            "intrinsic_score": intrinsic_score,
+            "dcd_filename": dcd_filename,
+            "frame_index": frame_index,
+            "pdb_filename": outlier_pdb_file.as_posix(),
+        }
 
     def rescan_h5_dcd(self):
         # We *always* want to scan at least once
@@ -241,7 +271,7 @@ class OutlierDetectionContext:
 
         result_file = self._outlier_results_dir.joinpath(f"{name}-{creation_time}.json")
         with open(result_file, "w") as f:
-            json.dump(json_result, f)
+            json.dump(json_result, f, indent=4)
 
     def halt_simulations(self):
         for md_dir in self.md_input_dirs:
@@ -313,18 +343,22 @@ def main():
             )
 
         # Send outliers to MD simulation jobs
-        ctx.send()
+        outlier_results = ctx.send_outliers()
         logger.info("Finished sending new outliers")
 
+        # Move outliers from scratch to persistent location
+        pdb_filenames = [data["pdb_filename"] for data in outlier_results]
+        ctx.backup_pdbs(pdb_filenames)
+
         # Results dictionary storing outlier_inds, intrinsic & extrinsic scores
-        results = {
-            "outlier_inds": outlier_inds,
-            "intrinsic_scores": outlier_scores,
-            "extrinsic_scores": extrinsic_scores,
-        }
+        # results = {
+        #    "outlier_inds": outlier_inds,
+        #    "intrinsic_scores": outlier_scores,
+        #    "extrinsic_scores": extrinsic_scores,
+        # }
 
         ctx.backup_array(embeddings, "embeddings", creation_time)
-        ctx.backup_dict(results, "outliers", creation_time)
+        ctx.backup_dict(outlier_results, "outliers", creation_time)
 
         # Compute elapsed time
         mins, secs = divmod(int(time.time() - start_time), 60)
