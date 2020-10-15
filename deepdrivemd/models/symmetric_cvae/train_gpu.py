@@ -3,7 +3,6 @@ import logging
 from pathlib import Path
 import shutil
 import time
-import tempfile
 
 import tensorflow as tf
 
@@ -41,10 +40,8 @@ def main(params: GPUTrainingRunConfig):
         train_distribute=strategy,
         **params.runconfig_params,
     )
-    local_checkpoint_path = tempfile.TemporaryDirectory(
-        suffix=None, prefix="train_checkpoints", dir=params.scratch_dir
-    )
-    local_checkpoint_path = Path(local_checkpoint_path.name).resolve()
+    local_checkpoint_path = params.scratch_dir.joinpath("train_checkpoints")
+    local_checkpoint_path.mkdir(parents=True)
 
     est = tf.estimator.Estimator(
         model_fn,
