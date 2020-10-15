@@ -1,6 +1,7 @@
 import logging
 import logging.handlers
 import sys
+import socket
 import time
 import threading
 
@@ -76,6 +77,9 @@ def config_logging(filename, level, format, datefmt, buffer_num_records, flush_p
     mem_handler.setLevel(level)
     mem_handler.setFormatter(formatter)
     _logger.addHandler(mem_handler)
+    _logger.info(f"Logging on {socket.gethostname()}")
+    tf_logger = logging.getLogger("tensorflow")
+    tf_logger.addHandler(mem_handler)
 
 
 def log_uncaught_exceptions(exctype, value, tb):

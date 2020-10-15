@@ -223,7 +223,7 @@ def dispatch_gpu_training(
         node_list=nodes,
         ranks_per_node=1,
         gpu_ids=gpu_ids,
-        output_file=cfg_path.with_suffix(".out"),
+        output_file=cfg_path.parent.joinpath("train.out"),
     )
     return train_run
 
