@@ -176,6 +176,18 @@ def dispatch_gpu_training(
 ):
     top_dir = experiment_dir.joinpath("gpu_training")
     top_dir.mkdir(exist_ok=True)
+
+    sim_data_dir = top_dir.joinpath("h5_data")
+    data_dir = top_dir.joinpath("records_loop")
+    eval_data_dir = top_dir.joinpath("eval_records_loop")
+    model_dir = top_dir.joinpath("model_dir")
+
+    sim_data_dir.mkdir()
+    data_dir.mkdir()
+    eval_data_dir.mkdir()
+    model_dir.mkdir()
+    global_path = top_dir.joinpath("files_seen.txt")
+
     logger.info(f"Created gpu train dir: {top_dir}")
 
     num_h5s, rem = divmod(user_config.num_frames_per_training, frames_per_h5)
@@ -188,11 +200,11 @@ def dispatch_gpu_training(
     config = GPUTrainingRunConfig(
         **user_config.dict(),
         **model_config.dict(),
-        sim_data_dir=top_dir.joinpath("h5_data"),
-        data_dir=top_dir.joinpath("records_loop"),
-        eval_data_dir=top_dir.joinpath("eval_records_loop"),
-        global_path=top_dir.joinpath("files_seen.txt"),
-        model_dir=top_dir.joinpath("model_dir"),
+        sim_data_dir=sim_data_dir,
+        data_dir=data_dir,
+        eval_data_dir=eval_data_dir,
+        global_path=global_path,
+        model_dir=model_dir,
         checkpoint_path=model_weights_dir,
         logging=logging_cfg,
         num_h5s_per_training=num_h5s,
