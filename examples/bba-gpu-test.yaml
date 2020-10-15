@@ -11,7 +11,7 @@ md_runner:
         - conda activate /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm
         - export PYTHONPATH=/lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD:$PYTHONPATH
     md_run_command: /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm/bin/python -m deepdrivemd.sim.run_openmm
-    num_jobs: 24
+    num_jobs: 16
     temperature_kelvin: 310.0
     reference_pdb_file: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/1FME/1FME-folded.pdb
     report_interval_ps: 50.0
@@ -37,7 +37,7 @@ gpu_training: # start with 20480 and supplement with 20480 at a time (4096 eval,
     strategy: multi_gpu
     eval_steps: 16 # 512*16=8192 samples
     mode: train
-    num_frames_per_training: 3072 # 160 files (128 per file)
+    num_frames_per_training: 3200 # 160 files (128 per file)
     runconfig_params:
         keep_checkpoint_max: 1
         log_step_count_steps: 32
