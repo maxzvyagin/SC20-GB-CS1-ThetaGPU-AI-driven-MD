@@ -203,7 +203,7 @@ class GPUTrainingUserConfig(BaseSettings):
     ranks_per_node: int = 1
     gpus_per_node: int = 8
     run_command: str = (
-        "singularity run -B /lus:/lus:rw --nv "
+        "singularity run -B /lus:/lus:rw -B /raid/scratch:/raid/scratch:rw --nv "
         "/lus/theta-fs0/projects/RL-fold/msalim/tensorflow_20.09-tf1-py3.sif "
         "/lus/theta-fs0/projects/RL-fold/msalim/tf1-ngc-env/bin/python -m deepdrivemd.models.symmetric_cvae.train_gpu"
     )
