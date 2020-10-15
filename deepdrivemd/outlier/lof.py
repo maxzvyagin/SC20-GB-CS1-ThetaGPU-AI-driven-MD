@@ -180,6 +180,12 @@ class OutlierDetectionContext:
 
         score, outlier = item
         _, extrinsic_score, intrinsic_score = score
+
+        if extrinsic_score is not None:
+            extrinsic_score = float(extrinsic_score)
+        if intrinsic_score is not None:
+            intrinsic_score = float(intrinsic_score)
+
         dcd_filename, frame_index = outlier
 
         logger.debug(f"Creating outlier .pdb from {dcd_filename} frame {frame_index}")
@@ -199,7 +205,7 @@ class OutlierDetectionContext:
             "extrinisic_score": extrinsic_score,
             "intrinsic_score": intrinsic_score,
             "dcd_filename": str(dcd_filename),
-            "frame_index": frame_index,
+            "frame_index": int(frame_index),
             "pdb_filename": outlier_pdb_file.as_posix(),
         }
 
