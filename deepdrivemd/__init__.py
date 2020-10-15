@@ -2,6 +2,7 @@ import logging
 import logging.handlers
 import sys
 import time
+import threading
 
 __version__ = "0.1"
 
@@ -21,7 +22,10 @@ class PeriodicMemoryHandler(logging.handlers.MemoryHandler):
         flush_period=30,
     ):
         super().__init__(
-            capacity, flushLevel=flushLevel, target=target, flushOnClose=flushOnClose,
+            capacity,
+            flushLevel=flushLevel,
+            target=target,
+            flushOnClose=flushOnClose,
         )
         self.flush_period = flush_period
         self.last_flush = 0
@@ -29,6 +33,16 @@ class PeriodicMemoryHandler(logging.handlers.MemoryHandler):
         self.target = target
         self.capacity = capacity
         self.flushOnClose = flushOnClose
+        self._flushing_thread = None
+        self._schedule_flush()
+
+    def _schedule_flush(self):
+        self.flush()
+        self._flushing_thread = threading.Timer(
+            interval=self.flush_period,
+            function=self._schedule_flush,
+        )
+        self._flushing_thread.start()
 
     def flush(self):
         super().flush()
