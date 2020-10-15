@@ -1,7 +1,9 @@
 import argparse
 import logging
 from pathlib import Path
+import shutil
 import time
+import tempfile
 
 import tensorflow as tf
 
@@ -36,11 +38,17 @@ def main(params: GPUTrainingRunConfig):
     params.fraction = 0
     logger.info("start create tf estimator")
     tf_config = tf.estimator.RunConfig(
-        train_distribute=strategy, **params.runconfig_params,
+        train_distribute=strategy,
+        **params.runconfig_params,
     )
+    local_checkpoint_path = tempfile.TemporaryDirectory(
+        suffix=None, prefix="train_checkpoints", dir=params.scratch_dir
+    )
+    local_checkpoint_path = Path(local_checkpoint_path.name).resolve()
+
     est = tf.estimator.Estimator(
         model_fn,
-        model_dir=params.checkpoint_path,
+        model_dir=local_checkpoint_path.as_posix(),
         params=params.dict(),
         config=tf_config,
         warm_start_from=warm_start_from,
@@ -66,6 +74,10 @@ def main(params: GPUTrainingRunConfig):
         logger.info(f"start train (steps={params.train_steps})")
         est.train(input_fn=simulation_tf_record_input_fn, steps=params.train_steps)
         logger.info(f"end train")
+
+        for fname in local_checkpoint_path.glob("*"):
+            dest = shutil.copy(fname, params.checkpoint_path)
+            logger.info(f"Copied file: {dest}")
 
 
 if __name__ == "__main__":

@@ -207,6 +207,7 @@ class GPUTrainingUserConfig(BaseSettings):
         "/lus/theta-fs0/projects/RL-fold/msalim/tensorflow_20.09-tf1-py3.sif "
         "/lus/theta-fs0/projects/RL-fold/msalim/tf1-ngc-env/bin/python -m deepdrivemd.models.symmetric_cvae.train_gpu"
     )
+    scratch_dir: Path = Path("/raid/scratch")
     environ_setup: List[str] = []
 
     num_frames_per_training: int = 16_000
@@ -230,7 +231,6 @@ class GPUTrainingRunConfig(CVAEModelConfig, GPUTrainingUserConfig):
     data_dir: Path  # a tfrecords dir
     eval_data_dir: Path  # same as above
     global_path: Path  # files_seen36.txt
-    model_dir: Path
     checkpoint_path: Path
     logging: LoggingConfig
     num_h5s_per_training: int
