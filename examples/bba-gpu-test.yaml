@@ -118,8 +118,6 @@ cvae_model:
         - 28
         - 28
 
-gpu_training: null
-
 logging:
     buffer_num_records: 1024
     datefmt: "%d-%b-%Y %H:%M:%S"
