@@ -89,7 +89,13 @@ class OutlierDetectionContext:
         return self._md_input_dirs
 
     def put_outlier(
-        self, dcd_filename, frame_index, created_time, intrinsic_score, extrinsic_score
+        self,
+        dcd_filename,
+        frame_index,
+        created_time,
+        intrinsic_score,
+        extrinsic_score,
+        outlier_ind,
     ):
         assert created_time > 0
         assert intrinsic_score < 0
@@ -99,7 +105,7 @@ class OutlierDetectionContext:
         #       which the user can specify score_func(dcd_file, frame_index) -> score
         #       where score is any object with a comparison operator (<).
         score = (-1 * created_time, extrinsic_score, intrinsic_score)
-        outlier = (dcd_filename, frame_index)
+        outlier = (dcd_filename, frame_index, outlier_ind)
         # Only keep new outliers
         if outlier in self._seen_outliers:
             logger.info(f"Outlier seen before: {outlier}")
@@ -186,9 +192,11 @@ class OutlierDetectionContext:
         if intrinsic_score is not None:
             intrinsic_score = float(intrinsic_score)
 
-        dcd_filename, frame_index = outlier
+        dcd_filename, frame_index, outlier_ind = outlier
 
-        logger.debug(f"Creating outlier .pdb from {dcd_filename} frame {frame_index}")
+        logger.debug(
+            f"Creating outlier .pdb from {dcd_filename} frame {frame_index} outlier_ind {outlier_ind}"
+        )
         outlier_pdb_file = self.generate_pdb_file(dcd_filename, frame_index)
         logger.debug("outlier .pdb write done")
         target = input_dir.joinpath(outlier_pdb_file.name)
@@ -204,6 +212,7 @@ class OutlierDetectionContext:
         return {
             "extrinisic_score": extrinsic_score,
             "intrinsic_score": intrinsic_score,
+            "outlier_ind": outlier_ind,
             "dcd_filename": str(dcd_filename),
             "frame_index": int(frame_index),
             "pdb_filename": outlier_pdb_file.as_posix(),
@@ -345,7 +354,12 @@ def main():
                         extrinsic_scores.append(extrinsic_score)
 
             ctx.put_outlier(
-                dcd_filename, frame_index, creation_time, outlier_score, extrinsic_score
+                dcd_filename,
+                frame_index,
+                creation_time,
+                outlier_score,
+                extrinsic_score,
+                outlier_ind,
             )
 
         # Send outliers to MD simulation jobs
