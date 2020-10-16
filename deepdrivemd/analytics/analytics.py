@@ -26,10 +26,12 @@ class Analytics:
         self.rmsd_files: List[Path] = self._find_outlier_files("rmsds-*.npy")
 
         # All of these lists are indexed by the outlier detection iteration:
-        self.json_data: List[Dict[int, dict]] = []
-        self.embeddings: List[np.ndarray] = []
-        self.rmsds: List[np.ndarray] = []
-        self._load_data()
+        self.json_data: List[Dict[int, dict]] = [
+            json.loads(f.read_text()) for f in self.json_files
+        ]
+        self.embeddings: List[np.ndarray] = [np.load(f) for f in self.embedding_files]
+        self.rmsds: List[np.ndarray] = [np.load(f) for f in self.rmsd_files]
+        self._outlier_rmsds: Optional[List[np.ndarray]] = None
 
     def _find_outlier_files(self, pattern: str) -> List[Path]:
         return sorted(list(self.outlier_dir.glob(pattern)), key=self.extract_timestamp)
@@ -42,20 +44,12 @@ class Analytics:
     def extract_timestamp(fname: Path) -> str:
         return fname.with_suffix("").name.split("-")[1]
 
-    def _load_data(self):
-        for json_f, embed_f, rmsd_f in zip(
-            self.json_files, self.embedding_files, self.rmsd_files
-        ):
-            json_data = json.loads(json_f.read_text())
-            json_data = {dat.pop("outlier_ind"): dat for dat in json_data}
-            self.json_data.append(json_data)
-            self.embeddings.append(np.load(embed_f))
-            self.rmsds.append(np.load(rmsd_f))
-
     def fetch_outlier(self, iteration_idx: int, outlier_idx: int) -> Outlier:
         outlier_iteration = self.json_data[iteration_idx]
         outlier_dict = outlier_iteration[outlier_idx]
         outlier = Outlier(**outlier_dict, outlier_ind=outlier_idx)
+        if self.rmsds:
+            outlier.rmsd = self.rmsds[iteration_idx][outlier_idx]
         return outlier
 
     @property
@@ -79,16 +73,18 @@ class Analytics:
             )
         return scores
 
-    def outlier_rmsds(
-        self,
-    ) -> List[np.ndarray]:
+    def outlier_rmsds(self, use_cache=True) -> List[np.ndarray]:
         """
         Returns a list of extrinsic_score ndarrays; one array per iteration of outlier detection
         """
+        if use_cache and self._outlier_rmsds:
+            return self._outlier_rmsds
         outlier_rmsds = []
         for iter_idx, outliers in enumerate(self.json_data):
             rmsds = [
                 self.rmsds[iter_idx][outlier_ind] for outlier_ind in outliers.keys()
             ]
             outlier_rmsds.append(np.array(rmsds))
+
+        self._outlier_rmsds = outlier_rmsds
         return outlier_rmsds
