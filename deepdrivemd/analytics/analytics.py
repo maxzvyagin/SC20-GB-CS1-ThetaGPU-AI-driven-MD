@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 import json
-from typing import Union, Optional, List, Dict
+from typing import Union, Optional, List, Dict, Tuple
 from pathlib import Path
 import numpy as np
 
@@ -57,6 +57,14 @@ class Analytics:
         outlier_dict = outlier_iteration[outlier_idx]
         outlier = Outlier(**outlier_dict)
         return outlier
+
+    @property
+    def outlier_indices(self) -> List[Tuple[int, int]]:
+        return list(
+            (outlier_iter, outlier_idx)
+            for outlier_iter in range(len(self.json_data))
+            for outlier_idx in self.json_data[outlier_iter]
+        )
 
     def extrinsic_scores(self) -> List[np.ndarray]:
         """
