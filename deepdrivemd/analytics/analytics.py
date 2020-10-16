@@ -65,7 +65,9 @@ class Analytics:
         scores = []
         for outliers in self.json_data:
             scores.append(
-                np.array(outlier["extrinsic_score"] for outlier in outliers.values())
+                np.array(
+                    list(outlier["extrinsic_score"] for outlier in outliers.values())
+                )
             )
         return scores
 
@@ -78,8 +80,7 @@ class Analytics:
         outlier_rmsds = []
         for iter_idx, outliers in enumerate(self.json_data):
             rmsds = [
-                self.rmsds[iter_idx][outlier["outlier_ind"]]
-                for outlier in outliers.values()
+                self.rmsds[iter_idx][outlier_ind] for outlier_ind in outliers.keys()
             ]
             outlier_rmsds.append(np.array(rmsds))
         return outlier_rmsds
