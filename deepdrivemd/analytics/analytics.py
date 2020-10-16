@@ -26,9 +26,12 @@ class Analytics:
         self.rmsd_files: List[Path] = self._find_outlier_files("rmsds-*.npy")
 
         # All of these lists are indexed by the outlier detection iteration:
-        self.json_data: List[Dict[int, dict]] = [
-            json.loads(f.read_text()) for f in self.json_files
-        ]
+        self.json_data: List[Dict[int, dict]] = []
+        for f in self.json_files:
+            dat = json.loads(f.read_text())
+            dat = {outlier.pop("outlier_ind"): outlier for outlier in dat}
+            self.json_data.append(dat)
+
         self.embeddings: List[np.ndarray] = [np.load(f) for f in self.embedding_files]
         self.rmsds: List[np.ndarray] = [np.load(f) for f in self.rmsd_files]
         self._outlier_rmsds: Optional[List[np.ndarray]] = None
