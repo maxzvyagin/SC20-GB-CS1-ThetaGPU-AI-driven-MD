@@ -333,25 +333,27 @@ def main():
         logger.debug(f"ctx.h5_length = {ctx.h5_length}")
         traj_dict = dict(zip(dcd_files, itertools.cycle([ctx.h5_length])))
 
-        # Collect extrinsic scores for logging
-        extrinsic_scores = []
-        rmsds = []
+        # Collect rmsds from all h5 files
+        rmsds = {}
+        for dcd_filename in dcd_files:
+            h5_file = ctx.dcd_h5_map[dcd_filename]
+            with h5py.File(h5_file, "r") as f:
+                if "rmsd" in f.keys():
+                    rmsds[dcd_filename] = f["rmsd"][...]
+                else:
+                    break
 
         # Identify new outliers and add to queue
         creation_time = int(time.time())
         for outlier_ind, outlier_score in zip(outlier_inds, outlier_scores):
             # find the location of outlier in it's DCD file
             frame_index, dcd_filename = find_frame(traj_dict, outlier_ind)
-            h5_file = ctx.dcd_h5_map[dcd_filename]
-            extrinsic_score = None
 
-            with h5py.File(h5_file, "r") as f:
-                if "rmsd" in f.keys():
-                    rmsd = f["rmsd"][...][frame_index]
-                    rmsds.append(rmsd)
-                    if config.extrinsic_outlier_score == "rmsd_to_reference_state":
-                        extrinsic_score = rmsd
-                        extrinsic_scores.append(extrinsic_score)
+            # Select optional extrinsic score
+            if rmsds and config.extrinsic_outlier_score == "rmsd_to_reference_state":
+                extrinsic_score = rmsds[dcd_filename][frame_index]
+            else:
+                extrinsic_score = None
 
             ctx.put_outlier(
                 dcd_filename,
@@ -372,7 +374,11 @@ def main():
         # Move outliers from scratch to persistent location
         ctx.backup_pdbs(outlier_results)
         ctx.backup_array(embeddings, "embeddings", creation_time)
-        ctx.backup_array(rmsds, "rmsds", creation_time)
+        if rmsds:
+            rmsds = np.concatenate(list(rmsds.values()))
+            # Handles case when embeddings are dropped due to `drop_remainder`:
+            rmsds = rmsds[: len(embeddings)]
+            ctx.backup_array(rmsds, "rmsds", creation_time)
         ctx.backup_json(outlier_results, "outliers", creation_time)
 
         # Compute elapsed time
