@@ -210,7 +210,7 @@ class OutlierDetectionContext:
             logger.debug(f"shutil.copy wrote {target} in {elapsed:.2f} seconds")
 
         return {
-            "extrinisic_score": extrinsic_score,
+            "extrinsic_score": extrinsic_score,
             "intrinsic_score": intrinsic_score,
             "outlier_ind": int(outlier_ind),
             "dcd_filename": str(dcd_filename),

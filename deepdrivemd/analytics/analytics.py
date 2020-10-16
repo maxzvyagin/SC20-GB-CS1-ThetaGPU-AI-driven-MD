@@ -74,7 +74,7 @@ class Analytics:
         for outliers in self.json_data:
             scores.append(
                 np.array(
-                    list(outlier["extrinisic_score"] for outlier in outliers.values())
+                    list(outlier["extrinsic_score"] for outlier in outliers.values())
                 )
             )
         return scores
