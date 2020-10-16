@@ -55,7 +55,7 @@ class Analytics:
     def fetch_outlier(self, iteration_idx: int, outlier_idx: int) -> Outlier:
         outlier_iteration = self.json_data[iteration_idx]
         outlier_dict = outlier_iteration[outlier_idx]
-        outlier = Outlier(**outlier_dict)
+        outlier = Outlier(**outlier_dict, outlier_ind=outlier_idx)
         return outlier
 
     @property
