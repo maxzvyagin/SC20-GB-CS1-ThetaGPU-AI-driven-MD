@@ -212,7 +212,7 @@ class OutlierDetectionContext:
         return {
             "extrinisic_score": extrinsic_score,
             "intrinsic_score": intrinsic_score,
-            "outlier_ind": outlier_ind,
+            "outlier_ind": int(outlier_ind),
             "dcd_filename": str(dcd_filename),
             "frame_index": int(frame_index),
             "pdb_filename": outlier_pdb_file.as_posix(),
