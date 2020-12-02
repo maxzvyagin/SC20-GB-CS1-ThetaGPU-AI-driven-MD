@@ -1,9 +1,11 @@
-experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/test-runs/bba_28_gpu.3
-walltime_min: 150
+experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/test-runs/nsp1016_448_gpu.1
+walltime_min: 600
 
 md_runner:
     frames_per_h5: "auto"
-    initial_configs_dir: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/1FME
+    simulation_length_ns: 1.0
+    report_interval_ps: 10.0
+    initial_configs_dir: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/nsp10_16
     local_run_dir: /raid/scratch
     md_environ_setup:
         - eval "$(/lus/theta-fs0/projects/RL-fold/msalim/miniconda3/bin/conda shell.bash
@@ -11,16 +13,15 @@ md_runner:
         - conda activate /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm
         - export PYTHONPATH=/lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD:$PYTHONPATH
     md_run_command: /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm/bin/python -m deepdrivemd.sim.run_openmm
-    num_jobs: 16
+    num_jobs: 80
     temperature_kelvin: 310.0
-    reference_pdb_file: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/1FME/1FME-folded.pdb
-    report_interval_ps: 5.0
-    sim_type: implicit
-    simulation_length_ns: 1.0
+    reference_pdb_file: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/nsp10_16/input_comp_000/comp.pdb
+    sim_type: explicit
+    wrap: True
 
 outlier_detection:
     environ_setup: []
-    extrinsic_outlier_score: rmsd_to_reference_state
+    extrinsic_outlier_score: "none"
     gpus_per_node: 8
     local_scratch_dir: /raid/scratch
     max_num_old_h5_files: 40
@@ -30,20 +31,26 @@ outlier_detection:
     run_command: "singularity run -B /lus:/lus:rw -B /raid:/raid:rw --nv /lus/theta-fs0/projects/RL-fold/msalim/tensorflow_20.09-tf1-py3.sif /lus/theta-fs0/projects/RL-fold/msalim/tf1-ngc-env/bin/python -m deepdrivemd.outlier.lof"
     sklearn_num_cpus: 16
 
-gpu_training: # start with 20480 and supplement with 20480 at a time (4096 eval, 16384 train)
+cs1_training: null
+
+gpu_training: # start with 10240 and supplement with 10240 at a time (2048 eval, 8192 train)
     num_nodes: 1
     ranks_per_node: 1
     gpus_per_node: 8
     strategy: multi_gpu
-    eval_steps: 16 # 512*16=8192 samples
+    run_command: "singularity run -B /lus:/lus:rw -B /raid/scratch:/raid/scratch:rw --nv /lus/theta-fs0/projects/RL-fold/msalim/tensorflow_20.09-tf1-py3.sif /lus/theta-fs0/projects/RL-fold/msalim/tf1-ngc-env/bin/python -m deepdrivemd.models.symmetric_cvae.train_gpu"
+    scratch_dir: /raid/scratch
+    
+    num_frames_per_training: 8000 # (1000 ps / 5 ps) * 80 nodes = 16000 frames
+    train_steps: 1600 # 50 epochs, 1 epoch is 16384 samples->32 steps
+    eval_steps: 8 # 512*8=4096 samples
     mode: train
-    num_frames_per_training: 3200 # 160 files (128 per file)
     runconfig_params:
         keep_checkpoint_max: 1
         log_step_count_steps: 32
         save_checkpoints_steps: 320
         save_summary_steps: 32
-    train_steps: 3200 
+
 
 cvae_model:
     activation: relu
@@ -68,10 +75,10 @@ cvae_model:
         - 5
         - 5
     dec_conv_strides:
-        - 1
-        - 1
-        - 1
-        - 1
+        - 2
+        - 2
+        - 2
+        - 2
     decay: 0.9
     dense_units: 64
     enc_conv_filters:
@@ -85,25 +92,25 @@ cvae_model:
         - 5
         - 5
     enc_conv_strides:
-        - 1
-        - 1
-        - 1
-        - 1
+        - 2
+        - 2
+        - 2
+        - 2
     epsilon: 1.0e-08
     fraction: 0.2
     full_precision_loss: false
     h5_shape:
         - 1
-        - 28
-        - 28
+        - 448
+        - 448
     input_shape:
         - 1
-        - 28
-        - 28
+        - 448
+        - 448
     itemsize: 1
     kl_loss_reduction_type: sum
-    last_n_files: 32 # 1024 samples per file, per epoch 32768 samples
-    last_n_files_eval: 8 # 1024 samples per file, per epoch 8192 samples
+    last_n_files: 16 # 1024 samples per file, per epoch 16384 samples
+    last_n_files_eval: 4 # 1024 samples per file, per epoch 4096 samples
     latent_ndim: 10
     learning_rate: 2.0e-05
     loss_scale: 1.0
@@ -112,11 +119,13 @@ cvae_model:
     momentum: 0.9
     optimizer_name: rmsprop
     reconstruction_loss_reduction_type: sum
-    samples_per_file: 1024 # 20 files per transfer (16 train, 4 eval)
+    samples_per_file: 1024 # 10 files per transfer (8 train, 2 eval)
     tfrecord_shape:
         - 1
-        - 28
-        - 28
+        - 448
+        - 448
+
+gpu_training: null
 
 logging:
     buffer_num_records: 1024
