@@ -218,7 +218,7 @@ def dispatch_gpu_training(
     train_run = MPIRun(
         user_config.run_command + f" -c {cfg_path}",
         node_list=nodes,
-        ranks_per_node=1,
+        ranks_per_node=user_config.ranks_per_node,
         gpu_ids=gpu_ids,
         output_file=cfg_path.parent.joinpath("train.out"),
     )
