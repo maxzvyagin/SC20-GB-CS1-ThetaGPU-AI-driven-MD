@@ -7,6 +7,9 @@ import time
 
 import tensorflow as tf
 import horovod.tensorflow as hvd
+import mpi4py
+mpi4py.rc.initialize = False
+from mpi4py import MPI # noqa: E402
 
 from deepdrivemd.models.symmetric_cvae.model import model_fn
 from deepdrivemd.models.symmetric_cvae.data import simulation_tf_record_input_fn
@@ -21,6 +24,7 @@ logger = None
 def main(params: GPUTrainingRunConfig):
     global logger
     hvd.init()
+    comm = MPI.COMM_WORLD.Dup()
     log_fname = params.checkpoint_path.parent.joinpath("training.log").as_posix()
     if hvd.rank() == 0:
         config_logging(filename=log_fname, **params.logging.dict())
@@ -59,7 +63,11 @@ def main(params: GPUTrainingRunConfig):
 
     seen_h5_files = set()
     while True:
-        all_h5_files = set(params.sim_data_dir.glob("*.h5"))
+        if hvd.rank() == 0:
+            all_h5_files = set(params.sim_data_dir.glob("*.h5"))
+        else:
+            all_h5_files = None
+        all_h5_files = comm.bcast(all_h5_files, root=0)
         new_h5_files = all_h5_files.difference(seen_h5_files)
         if len(new_h5_files) < params.num_h5s_per_training:
             logger.info(
@@ -73,6 +81,7 @@ def main(params: GPUTrainingRunConfig):
         if hvd.rank() == 0:
             update_dataset(params.dict())
         logger.info("end update_dataset")
+        comm.Barrier()
 
         logger.info(f"start train (steps={params.train_steps})")
         est.train(

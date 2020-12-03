@@ -1,4 +1,4 @@
-experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/test-runs/nsp1016_448_gpu.2
+experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/test-runs/nsp1016_448_gpu.4
 walltime_min: 600
 
 md_runner:
@@ -34,8 +34,8 @@ outlier_detection:
 cs1_training: null
 
 gpu_training: # start with 10240 and supplement with 10240 at a time (2048 eval, 8192 train)
-    num_nodes: 1
-    ranks_per_node: 1
+    num_nodes: 4
+    ranks_per_node: 8
     gpus_per_node: 8
     strategy: multi_gpu
     run_command: "singularity run -B /lus:/lus:rw -B /raid/scratch:/raid/scratch:rw --nv /lus/theta-fs0/projects/RL-fold/msalim/tensorflow_20.09-tf1-py3.sif /lus/theta-fs0/projects/RL-fold/msalim/tf1-ngc-env/bin/python -m deepdrivemd.models.symmetric_cvae.train_gpu"
@@ -98,7 +98,7 @@ cvae_model:
         - 2
     epsilon: 1.0e-08
     fraction: 0.2
-    full_precision_loss: false
+    full_precision_loss: true
     h5_shape:
         - 1
         - 448
@@ -112,9 +112,9 @@ cvae_model:
     last_n_files: 15 # 512 samples per file
     last_n_files_eval: 4 
     latent_ndim: 10
-    learning_rate: 5.0e-06
+    learning_rate: 1.0e-05
     loss_scale: 1.0
-    mixed_precision: true
+    mixed_precision: false
     model_random_seed: null
     momentum: 0.9
     optimizer_name: rmsprop
