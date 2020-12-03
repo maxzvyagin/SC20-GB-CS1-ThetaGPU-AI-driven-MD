@@ -112,7 +112,7 @@ cvae_model:
     last_n_files: 15 # 512 samples per file
     last_n_files_eval: 4 
     latent_ndim: 10
-    learning_rate: 2.0e-05
+    learning_rate: 5.0e-06
     loss_scale: 1.0
     mixed_precision: true
     model_random_seed: null
