@@ -1,0 +1,138 @@
+# 16 md nodes + 1 outlier detection + 4 training = 21 nodes
+experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/production-runs/pasc/nsp1016_448_gpu.2
+walltime_min: 480
+
+md_runner:
+    frames_per_h5: "auto"
+    simulation_length_ns: 2.0
+    report_interval_ps: 20.0
+    initial_configs_dir: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/nsp10_16
+    local_run_dir: /raid/scratch
+    md_environ_setup:
+        - eval "$(/lus/theta-fs0/projects/RL-fold/msalim/miniconda3/bin/conda shell.bash
+          hook)"
+        - conda activate /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm
+        - export PYTHONPATH=/lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD:$PYTHONPATH
+    md_run_command: /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm/bin/python -m deepdrivemd.sim.run_openmm
+    num_jobs: 128 # 16 nodes * 8 runs/node = 128
+    temperature_kelvin: 310.0
+    reference_pdb_file: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/nsp10_16/input_comp_000/comp.pdb
+    sim_type: explicit
+    wrap: True
+
+outlier_detection: # 1 node
+    environ_setup: []
+    extrinsic_outlier_score: "none"
+    gpus_per_node: 8
+    local_scratch_dir: /raid/scratch
+    max_num_old_h5_files: 40
+    num_nodes: 1
+    num_outliers: 500
+    ranks_per_node: 1
+    run_command: "singularity run -B /lus:/lus:rw -B /raid:/raid:rw --nv /lus/theta-fs0/projects/RL-fold/msalim/tensorflow_20.09-tf1-py3.sif /lus/theta-fs0/projects/RL-fold/msalim/tf1-ngc-env/bin/python -m deepdrivemd.outlier.lof"
+    sklearn_num_cpus: 16
+
+cs1_training: null
+
+gpu_training: # start with 10240 and supplement with 10240 at a time (2048 eval, 8192 train)
+    num_nodes: 4
+    ranks_per_node: 8
+    gpus_per_node: 8
+    strategy: multi_gpu
+    run_command: "singularity run -B /lus:/lus:rw -B /raid/scratch:/raid/scratch:rw --nv /lus/theta-fs0/projects/RL-fold/msalim/tensorflow_20.09-tf1-py3.sif /lus/theta-fs0/projects/RL-fold/msalim/tf1-ngc-env/bin/python -m deepdrivemd.models.symmetric_cvae.train_gpu"
+    scratch_dir: /raid/scratch
+    
+    num_frames_per_training: 12800 # (2000 ps / 20 ps) * 128 runs = 12800 frames
+
+    # epoch_size = 512 samples_per_file * 24 files = 12288 frames per epoch
+    train_steps: 1400 # 50 epochs * (12288 frames / (64*32 frames per minibatch)) = 300 steps
+    eval_steps: 8 # 512*8=4096 samples
+    mode: train
+    runconfig_params:
+        keep_checkpoint_max: 1
+        log_step_count_steps: 32
+        save_checkpoints_steps: 320
+        save_summary_steps: 32
+
+
+cvae_model:
+    activation: relu
+    metrics: False
+    allowed_optimizers:
+        - sgd
+        - sgdm
+        - adam
+        - rmsprop
+    batch_size: 64
+    beta1: 0.2
+    beta2: 0.9
+    data_random_seed: null
+    dec_conv_filters:
+        - 100
+        - 100
+        - 100
+        - 100
+    dec_conv_kernels:
+        - 5
+        - 5
+        - 5
+        - 5
+    dec_conv_strides:
+        - 2
+        - 2
+        - 2
+        - 2
+    decay: 0.9
+    dense_units: 64
+    enc_conv_filters:
+        - 100
+        - 100
+        - 100
+        - 100
+    enc_conv_kernels:
+        - 5
+        - 5
+        - 5
+        - 5
+    enc_conv_strides:
+        - 2
+        - 2
+        - 2
+        - 2
+    epsilon: 1.0e-08
+    fraction: 0.2
+    full_precision_loss: true
+    h5_shape:
+        - 1
+        - 448
+        - 448
+    input_shape:
+        - 1
+        - 448
+        - 448
+    itemsize: 1
+    kl_loss_reduction_type: sum
+    last_n_files: 24 # floor(12800 num_frames_per_training / 512 samples_per_file) - 1 just in case
+    last_n_files_eval: 4 
+    latent_ndim: 10
+    learning_rate: 1.0e-05
+    loss_scale: 1.0
+    mixed_precision: false
+    model_random_seed: null
+    momentum: 0.9
+    optimizer_name: rmsprop
+    reconstruction_loss_reduction_type: sum
+    samples_per_file: 512
+    tfrecord_shape:
+        - 1
+        - 448
+        - 448
+
+logging:
+    buffer_num_records: 1024
+    datefmt: "%d-%b-%Y %H:%M:%S"
+    flush_period: 30
+    format:
+        "%(asctime)s|%(process)d|%(thread)d|%(levelname)8s|%(name)s:%(lineno)s]
+        %(message)s"
+    level: DEBUG
