@@ -1,6 +1,7 @@
 import argparse
 import logging
 from pathlib import Path
+import os
 import shutil
 import time
 
@@ -32,11 +33,13 @@ def main(params: GPUTrainingRunConfig):
 
     params.fraction = 0
     logger.info("start create tf estimator")
+    logger.info(f"hvd.size() is {hvd.size()}")
+
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(hvd.local_rank())
     session_config = tf.ConfigProto()
     session_config.gpu_options.allow_growth = True
-    session_config.gpu_options.visible_device_list = str(hvd.local_rank())
     tf_config = tf.estimator.RunConfig(
-        session_config=session_config, **params.runconfig_params
+         session_config=session_config, **params.runconfig_params
     )
     if hvd.rank() == 0:
         local_checkpoint_path = params.scratch_dir.joinpath("train_checkpoints")
@@ -67,7 +70,8 @@ def main(params: GPUTrainingRunConfig):
             continue
         seen_h5_files.update(new_h5_files)
         logger.info("start update_dataset")
-        update_dataset(params.dict())
+        if hvd.rank() == 0:
+            update_dataset(params.dict())
         logger.info("end update_dataset")
 
         logger.info(f"start train (steps={params.train_steps})")
