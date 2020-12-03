@@ -67,7 +67,8 @@ def main(params: GPUTrainingRunConfig):
             continue
         seen_h5_files.update(new_h5_files)
         logger.info("start update_dataset")
-        update_dataset(params.dict())
+        if hvd.rank() == 0:
+            update_dataset(params.dict())
         logger.info("end update_dataset")
 
         logger.info(f"start train (steps={params.train_steps})")
