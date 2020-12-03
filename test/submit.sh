@@ -1,7 +1,7 @@
 #!/bin/bash
 #COBALT -n 12
 #COBALT -t 610
-#COBALT -q R.CVD-Mol-AI
+#COBALT -q full-node
 #COBALT -A CVD-Mol-AI
 #COBALT --attrs pubnet=true:enable_ssh=1:ssds=required:ssd_size=2048
 

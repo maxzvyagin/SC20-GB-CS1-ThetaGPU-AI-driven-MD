@@ -74,6 +74,7 @@ class Analytics:
                     list(outlier["extrinsic_score"] for outlier in outliers.values())
                 )
             )
+        scores = np.array(scores)
         return scores
 
     def outlier_rmsds(self, use_cache=True) -> List[np.ndarray]:
@@ -89,5 +90,6 @@ class Analytics:
             ]
             outlier_rmsds.append(np.array(rmsds))
 
+        outlier_rmsds = np.array(outlier_rmsds)
         self._outlier_rmsds = outlier_rmsds
         return outlier_rmsds

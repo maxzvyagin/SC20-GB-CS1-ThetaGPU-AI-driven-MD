@@ -1,4 +1,4 @@
-experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/test-runs/nsp1016_448_gpu.1
+experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/test-runs/nsp1016_448_gpu.2
 walltime_min: 600
 
 md_runner:
@@ -42,7 +42,7 @@ gpu_training: # start with 10240 and supplement with 10240 at a time (2048 eval,
     scratch_dir: /raid/scratch
     
     num_frames_per_training: 8000 # (1000 ps / 5 ps) * 80 nodes = 16000 frames
-    train_steps: 1600 # 50 epochs, 1 epoch is 16384 samples->32 steps
+    train_steps: 6000 # 50 epochs, 1 epoch is 7680 samples->120 steps
     eval_steps: 8 # 512*8=4096 samples
     mode: train
     runconfig_params:
@@ -60,7 +60,7 @@ cvae_model:
         - sgdm
         - adam
         - rmsprop
-    batch_size: 512
+    batch_size: 64
     beta1: 0.2
     beta2: 0.9
     data_random_seed: null
@@ -109,8 +109,8 @@ cvae_model:
         - 448
     itemsize: 1
     kl_loss_reduction_type: sum
-    last_n_files: 16 # 1024 samples per file, per epoch 16384 samples
-    last_n_files_eval: 4 # 1024 samples per file, per epoch 4096 samples
+    last_n_files: 15 # 512 samples per file
+    last_n_files_eval: 4 
     latent_ndim: 10
     learning_rate: 2.0e-05
     loss_scale: 1.0
@@ -119,13 +119,11 @@ cvae_model:
     momentum: 0.9
     optimizer_name: rmsprop
     reconstruction_loss_reduction_type: sum
-    samples_per_file: 1024 # 10 files per transfer (8 train, 2 eval)
+    samples_per_file: 512
     tfrecord_shape:
         - 1
         - 448
         - 448
-
-gpu_training: null
 
 logging:
     buffer_num_records: 1024
