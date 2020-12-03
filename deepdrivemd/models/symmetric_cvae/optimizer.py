@@ -2,12 +2,13 @@
 Module to set optimizer
 """
 import tensorflow as tf
+import horovod.tensorflow as hvd
 
 _ALLOWED_OPTIMIZERS = ["sgd", "sgdm", "adam", "rmsprop"]
 
 
 def get_optimizer(params):
-    lr = params["learning_rate"]
+    lr = params["learning_rate"] * hvd.size()
     optimizer_name = params["optimizer_name"]
     if optimizer_name in _ALLOWED_OPTIMIZERS:
         if optimizer_name == "adam":
@@ -27,11 +28,14 @@ def get_optimizer(params):
             )
         elif optimizer_name == "sgdm":
             optimizer = tf.compat.v1.train.MomentumOptimizer(
-                learning_rate=lr, momentum=params["momentum"], name="sgd_momentum",
+                learning_rate=lr,
+                momentum=params["momentum"],
+                name="sgd_momentum",
             )
         elif optimizer_name == "sgd":
             optimizer = tf.compat.v1.train.GradientDescentOptimizer(
-                learning_rate=lr, name="sgd",
+                learning_rate=lr,
+                name="sgd",
             )
         else:
             raise AssertionError(
@@ -42,4 +46,4 @@ def get_optimizer(params):
         raise AssertionError(
             f"Supported optimizer are {_ALLOWED_OPTIMIZERS}," f"passed {optimizer_name}"
         )
-    return optimizer
+    return hvd.DistributedOptimizer(optimizer)
