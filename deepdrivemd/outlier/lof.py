@@ -137,15 +137,22 @@ class OutlierDetectionContext:
                     outliers.append(data)
         return outliers
 
-    def backup_pdbs(self, outlier_results: List[dict]):
+    def backup_pdbs(self, outlier_results: List[dict], creation_time: int):
         count = len(outlier_results)
         logger.info(
             f"Moving {count} pdb files from local storage to {self._outlier_pdbs_dir}"
         )
         start = time.time()
+
+        # Make new outlier pdb dir each iteration of outlier detection
+        # to avoid the edge case where the same pdb is found in different iterations
+        outlier_pdb_dir = self._outlier_pdbs_dir.joinpath(str(creation_time))
+        outlier_pdb_dir.mkdir()
+
         for outlier in outlier_results:
-            dest = shutil.move(outlier["pdb_filename"], self._outlier_pdbs_dir)
+            dest = shutil.move(outlier["pdb_filename"], outlier_pdb_dir)
             outlier["pdb_filename"] = dest
+
         elapsed = time.time() - start
         logger.info(f"Moved {count} pdb files in {elapsed:.2f} seconds")
 
@@ -372,7 +379,7 @@ def main():
         # With the keys: {extrinsic_score, intrinsic_score, dcd_filename, frame_index, pdb_filename}
 
         # Move outliers from scratch to persistent location
-        ctx.backup_pdbs(outlier_results)
+        ctx.backup_pdbs(outlier_results, creation_time)
         ctx.backup_array(embeddings, "embeddings", creation_time)
         if rmsds:
             rmsds = np.concatenate(list(rmsds.values()))
