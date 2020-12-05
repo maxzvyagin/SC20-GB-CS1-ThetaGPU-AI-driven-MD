@@ -1,10 +1,10 @@
-experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/test-runs/nsp1016_448.1
+experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/test-runs/cs1/nsp1016_448.3
 walltime_min: 150
 
 md_runner:
     frames_per_h5: "auto"
-    simulation_length_ns: 2.6
-    report_interval_ps: 50
+    simulation_length_ns: 1.3
+    report_interval_ps: 25
     initial_configs_dir: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/nsp10_16
     local_run_dir: /raid/scratch
     md_environ_setup:
@@ -34,11 +34,11 @@ outlier_detection:
 cs1_training: # start with 10240 and supplement with 10240 at a time (2048 eval, 8192 train)
     eval_steps: 8 # 512*8=4096 samples
     hostname: medulla1
-    medulla_experiment_path: /data/shared/msalim/test-runs/nsp1016_448.1
+    medulla_experiment_path: /data/shared/msalim/test-runs/nsp1016_448.3
     initial_h5_transfer_dir: /lus/theta-fs0/projects/RL-fold/braceal/cs1-nsp10_16-seed
     mode: train
     num_frames_per_training: 4160 # (2600 ps / 50 ps) * 80 nodes = 4160 frames 
-    run_script: /data/shared/vishal/ANL-shared/cvae_gb/run_mixed.sh
+    run_script: /data/shared/msalim/ANL-shared/cvae_gb/run_mixed.sh
     runconfig_params:
         keep_checkpoint_max: 1
         log_step_count_steps: 32
