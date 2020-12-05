@@ -1,6 +1,6 @@
-# 16 md nodes + 1 outlier detection + 4 training = 21 nodes
-experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/production-runs/pasc/nsp1016_448_gpu.2
-walltime_min: 480
+# 19 md nodes + 1 outlier detection + 1 training = 21 nodes
+experiment_directory: /lus/theta-fs0/projects/RL-fold/msalim/production-runs/pasc/nsp1016_448_gpu.1
+walltime_min: 475 
 
 md_runner:
     frames_per_h5: "auto"
@@ -14,7 +14,7 @@ md_runner:
         - conda activate /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm
         - export PYTHONPATH=/lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD:$PYTHONPATH
     md_run_command: /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm/bin/python -m deepdrivemd.sim.run_openmm
-    num_jobs: 128 # 16 nodes * 8 runs/node = 128
+    num_jobs: 152 # 19 nodes * 8 runs/node = 152 
     temperature_kelvin: 310.0
     reference_pdb_file: /lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD/data/nsp10_16/input_comp_000/comp.pdb
     sim_type: explicit
@@ -35,17 +35,17 @@ outlier_detection: # 1 node
 cs1_training: null
 
 gpu_training: # start with 10240 and supplement with 10240 at a time (2048 eval, 8192 train)
-    num_nodes: 4
+    num_nodes: 1
     ranks_per_node: 8
     gpus_per_node: 8
     strategy: multi_gpu
     run_command: "singularity run -B /lus:/lus:rw -B /raid/scratch:/raid/scratch:rw --nv /lus/theta-fs0/projects/RL-fold/msalim/tensorflow_20.09-tf1-py3.sif /lus/theta-fs0/projects/RL-fold/msalim/tf1-ngc-env/bin/python -m deepdrivemd.models.symmetric_cvae.train_gpu"
     scratch_dir: /raid/scratch
     
-    num_frames_per_training: 12800 # (2000 ps / 20 ps) * 128 runs = 12800 frames
+    num_frames_per_training: 15200 # (2000 ps / 20 ps) * 152 runs = 15_200 frames
 
-    # epoch_size = 512 samples_per_file * 24 files = 12288 frames per epoch
-    train_steps: 1400 # 50 epochs * (12288 frames / (64*32 frames per minibatch)) = 300 steps
+    # epoch_size = 512 samples_per_file * 28 files = 14336 frames per epoch
+    train_steps: 1400 # 50 epochs * (14336 frames / (64*8 frames per minibatch)) = 1400 steps
     eval_steps: 8 # 512*8=4096 samples
     mode: train
     runconfig_params:
@@ -112,9 +112,9 @@ cvae_model:
         - 448
     itemsize: 1
     kl_loss_reduction_type: sum
-    last_n_files: 24 # floor(12800 num_frames_per_training / 512 samples_per_file) - 1 just in case
+    last_n_files: 28 # floor(15200 num_frames_per_training / 512 samples_per_file) - 1 just in case
     last_n_files_eval: 4 
-    latent_ndim: 10
+    latent_ndim: 40
     learning_rate: 1.0e-05
     loss_scale: 1.0
     mixed_precision: false
