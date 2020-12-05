@@ -35,7 +35,7 @@ outlier_detection: # 1 node
 cs1_training:
     eval_steps: 8 # 512*8=4096 samples
     hostname: medulla1
-    medulla_experiment_path: /data/shared/msalim/production-runs/nsp1016_448_cs1.3
+    medulla_experiment_path: /data/shared/msalim/production-runs/nsp1016_448_cs1_pasc3
     initial_h5_transfer_dir: /lus/theta-fs0/projects/RL-fold/braceal/cs1-nsp10_16-seed
     mode: train
     num_frames_per_training: 16000 # (2000 ps / 20 ps) * 160 runs = 16000 frames
