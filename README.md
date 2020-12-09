@@ -12,6 +12,13 @@ Install `deepdrivemd` into a virtualenv with:
 pip install -e .
 ```
 
+Then, install pre-commit hooks: this will auto-format and auto-lint _on commit_ to enforce consistent code style:
+
+```
+pre-commit install
+pre-commit autoupdate
+```
+
 ### Generating a YAML input spec:
 
 First, run this command to get a _sample_ YAML config file:

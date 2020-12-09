@@ -36,6 +36,7 @@ def update_dataset(params):
             f.write(f"{file_seen}\n")
 
 
-params = get_params()
-update_dataset(params)
-print("update done")
+if __name__ == "__main__":
+    params = get_params()
+    update_dataset(params)
+    print("update done")

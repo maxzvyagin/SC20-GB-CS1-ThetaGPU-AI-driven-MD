@@ -1,18 +1,20 @@
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras.backend as K
+
 _REDUCTION_TYPES = ["sum", "mean"]
 
+
 def conv2d(
-        inputs,
-        filters,
-        kernel_size,
-        padding,
-        dilation_rate=(1, 1),
-        strides=(1, 1),
-        activation="relu",
-        name="conv",
-        use_bias=True,
+    inputs,
+    filters,
+    kernel_size,
+    padding,
+    dilation_rate=(1, 1),
+    strides=(1, 1),
+    activation="relu",
+    name="conv",
+    use_bias=True,
 ):
     if strides != (1, 1) and dilation_rate != (1, 1):
         raise ValueError(
@@ -37,15 +39,15 @@ def conv2d(
 
 
 def deconv2d(
-        inputs,
-        filters,
-        kernel_size,
-        padding,
-        dilation_rate=(1, 1),
-        strides=(1, 1),
-        activation="relu",
-        name="deconv",
-        use_bias=True,
+    inputs,
+    filters,
+    kernel_size,
+    padding,
+    dilation_rate=(1, 1),
+    strides=(1, 1),
+    activation="relu",
+    name="deconv",
+    use_bias=True,
 ):
     if strides != (1, 1) and dilation_rate != (1, 1):
         raise ValueError(
@@ -70,17 +72,10 @@ def deconv2d(
 
 
 def dense(
-        inputs,
-        units,
-        activation,
-        name="dense",
-        use_bias=True,
+    inputs, units, activation, name="dense", use_bias=True,
 ):
     net = tf.keras.layers.Dense(
-        name=name,
-        units=units,
-        activation=activation,
-        use_bias=use_bias,
+        name=name, units=units, activation=activation, use_bias=use_bias,
     )(inputs)
 
     tf.compat.v1.logging.info(f"Shape net after {net.name}: {net.get_shape()}")
@@ -88,24 +83,14 @@ def dense(
 
 
 def variational_embedding(
-    inputs,
-    latent_ndim,
-    kl_loss_reduction_type="sum",
-    fp_loss=False,
-    name="embedding",
+    inputs, latent_ndim, kl_loss_reduction_type="sum", fp_loss=False, name="embedding",
 ):
     mean = dense(
-        inputs=inputs,
-        units=latent_ndim,
-        activation=None,
-        name="enc_dense_mean",
+        inputs=inputs, units=latent_ndim, activation=None, name="enc_dense_mean",
     )
 
     logvar = dense(
-        inputs=inputs,
-        units=latent_ndim,
-        activation=None,
-        name="enc_dense_logvar",
+        inputs=inputs, units=latent_ndim, activation=None, name="enc_dense_logvar",
     )
 
     # Sample embedding
@@ -123,10 +108,7 @@ def variational_embedding(
         mean = tf.cast(mean, tf.float32)
         logvar = tf.cast(logvar, tf.float32)
     # Reduce along latent_ndim
-    kl_loss = -0.5 * reduce_op(
-        (1 + logvar - K.square(mean) - K.exp(logvar)),
-        axis=1
-    )
+    kl_loss = -0.5 * reduce_op((1 + logvar - K.square(mean) - K.exp(logvar)), axis=1)
     # Average across batch
     kl_loss = tf.reduce_mean(kl_loss)
 
@@ -138,41 +120,45 @@ def build_model(net, params):
     assert len(input_shape) == 3, "Input shape must be 3-dim"
 
     enc_conv_kernels = params["enc_conv_kernels"]
-    enc_conv_filters = params["enc_conv_filters"] # output filters
+    enc_conv_filters = params["enc_conv_filters"]  # output filters
     enc_conv_strides = params["enc_conv_strides"]
     activation = params["activation"]
-    assert len(enc_conv_kernels) == len(enc_conv_filters), \
-        "encoder layers are misspecified: len(kernels) != len(filters)"
-    assert len(enc_conv_kernels) == len(enc_conv_strides), \
-        "encoder layers are misspecified: len(kernels) != len(strides)"
+    assert len(enc_conv_kernels) == len(
+        enc_conv_filters
+    ), "encoder layers are misspecified: len(kernels) != len(filters)"
+    assert len(enc_conv_kernels) == len(
+        enc_conv_strides
+    ), "encoder layers are misspecified: len(kernels) != len(strides)"
 
     dec_conv_kernels = params["dec_conv_kernels"]
-    dec_conv_filters = params["dec_conv_filters"] # input filters
+    dec_conv_filters = params["dec_conv_filters"]  # input filters
     dec_conv_strides = params["dec_conv_strides"]
     # Last decoder layer does not have an activation.
-    dec_conv_activations = [activation] * (len(dec_conv_strides)-1) + [None]
-    assert len(dec_conv_kernels) == len(dec_conv_filters), \
-        "decoder layers are misspecified: len(kernels) != len(filters)"
-    assert len(dec_conv_kernels) == len(dec_conv_strides), \
-        "decoder layers are misspecified: len(kernels) != len(strides)"
-
+    dec_conv_activations = [activation] * (len(dec_conv_strides) - 1) + [None]
+    assert len(dec_conv_kernels) == len(
+        dec_conv_filters
+    ), "decoder layers are misspecified: len(kernels) != len(filters)"
+    assert len(dec_conv_kernels) == len(
+        dec_conv_strides
+    ), "decoder layers are misspecified: len(kernels) != len(strides)"
 
     dense_units = params["dense_units"]
     latent_ndim = params["latent_ndim"]
     kl_loss_red_type = params["kl_loss_reduction_type"]
-    assert kl_loss_red_type in _REDUCTION_TYPES, \
-        f"invalid reconstruction loss reduction type: {kl_loss_red_type}"
+    assert (
+        kl_loss_red_type in _REDUCTION_TYPES
+    ), f"invalid reconstruction loss reduction type: {kl_loss_red_type}"
     fp_loss = params["full_precision_loss"]
 
     upsample = np.product(dec_conv_strides)
-    assert input_shape[1] % upsample == 0, \
-        "Input shape dim1 must be divisible by decoder strides"
-    assert input_shape[2] % upsample == 0, \
-        "Input shape dim2 must be divisible by decoder strides"
+    assert (
+        input_shape[1] % upsample == 0
+    ), "Input shape dim1 must be divisible by decoder strides"
+    assert (
+        input_shape[2] % upsample == 0
+    ), "Input shape dim2 must be divisible by decoder strides"
     unflatten_filters = dec_conv_filters[0]
-    unflatten_shape = (
-        [unflatten_filters] + [d // upsample for d in input_shape[1:]]
-    )
+    unflatten_shape = [unflatten_filters] + [d // upsample for d in input_shape[1:]]
     unflatten_nelem = np.product(unflatten_shape)
 
     # Input
@@ -181,12 +167,7 @@ def build_model(net, params):
     # Encoder conv layers
     enc_conv_activations = [activation] * (len(enc_conv_strides))
     for count, (kernel, filters, stride, activation) in enumerate(
-            zip(
-                enc_conv_kernels,
-                enc_conv_filters,
-                enc_conv_strides,
-                enc_conv_activations
-            )
+        zip(enc_conv_kernels, enc_conv_filters, enc_conv_strides, enc_conv_activations)
     ):
         net = conv2d(
             inputs=net,
@@ -204,10 +185,7 @@ def build_model(net, params):
 
     # Encoder dense layers
     net = dense(
-        inputs=net,
-        units=dense_units,
-        activation=activation,
-        name=f"enc_dense_1",
+        inputs=net, units=dense_units, activation=activation, name=f"enc_dense_1",
     )
 
     # Embedding
@@ -225,17 +203,11 @@ def build_model(net, params):
 
     # Decoder dense layers
     net = dense(
-        inputs=net,
-        units=dense_units,
-        activation=activation,
-        name=f"dec_dense_1",
+        inputs=net, units=dense_units, activation=activation, name=f"dec_dense_1",
     )
 
     net = dense(
-        inputs=net,
-        units=unflatten_nelem,
-        activation=activation,
-        name=f"dec_dense_2",
+        inputs=net, units=unflatten_nelem, activation=activation, name=f"dec_dense_2",
     )
 
     # Unflatten
@@ -244,14 +216,16 @@ def build_model(net, params):
 
     # Decoder layers
     dec_conv_filters_out = dec_conv_filters[1:] + [input_shape[0]]
-    for count, (kernel, filters, stride, activation) in list(enumerate(
+    for count, (kernel, filters, stride, activation) in list(
+        enumerate(
             zip(
                 dec_conv_kernels,
                 dec_conv_filters_out,
                 dec_conv_strides,
-                dec_conv_activations
+                dec_conv_activations,
             )
-    )):
+        )
+    ):
         net = deconv2d(
             inputs=net,
             filters=filters,

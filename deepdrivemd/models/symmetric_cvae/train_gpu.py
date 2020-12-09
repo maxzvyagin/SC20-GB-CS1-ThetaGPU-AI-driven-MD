@@ -1,84 +1,107 @@
-"""
-Copyright 2019 Cerebras Systems.
-
-GPU training script for the ANL GravWave model.
-"""
-
 import argparse
-import json
+import logging
+from pathlib import Path
 import os
+import shutil
+import time
+
 import tensorflow as tf
-import yaml
+import horovod.tensorflow as hvd
+import mpi4py
+mpi4py.rc.initialize = False
+from mpi4py import MPI # noqa: E402
 
-from .model import model_fn
-from .data import (
-    val_input_fn,
-    train_input_fn,
-    simulation_input_fn,
-    simulation_tf_record_input_fn,
-)
-from .utils import get_params
-
-######## HELPER FUNCTIONS ###########
+from deepdrivemd.models.symmetric_cvae.model import model_fn
+from deepdrivemd.models.symmetric_cvae.data import simulation_tf_record_input_fn
+from deepdrivemd.models.symmetric_cvae.prepare_dataset import update_dataset
+from deepdrivemd.driver.config import GPUTrainingRunConfig
+from deepdrivemd import config_logging
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--params",
-        default="./params.yaml",
-        help="Path to .yaml file with model parameters",
+logger = None
+
+
+def main(params: GPUTrainingRunConfig):
+    global logger
+    hvd.init()
+    comm = MPI.COMM_WORLD.Dup()
+    log_fname = params.checkpoint_path.parent.joinpath("training.log").as_posix()
+    if hvd.rank() == 0:
+        config_logging(filename=log_fname, **params.logging.dict())
+    logger = logging.getLogger("deepdrivemd.models.symmetric_cvae.train_gpu")
+
+    if params.initial_weights_dir:
+        warm_start_from = tf.train.latest_checkpoint(params.initial_weights_dir)
+    else:
+        warm_start_from = None
+
+    params.fraction = 0
+    logger.info("start create tf estimator")
+    logger.info(f"hvd.size() is {hvd.size()}")
+
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(hvd.local_rank())
+    session_config = tf.ConfigProto()
+    session_config.gpu_options.allow_growth = True
+    tf_config = tf.estimator.RunConfig(
+         session_config=session_config, **params.runconfig_params
     )
-    parser.add_argument(
-        "--model-dir", default=None, help="Directory to save / load model from"
-    )
-    parser.add_argument(
-        "--train-steps", type=int, default=2, help="Directory to save / load model from"
-    )
-    parser.add_argument(
-        "--mode",
-        choices=["train", "eval"],
-        default="train",
-        help="Can choose from train or eval. Defaults to train.",
-    )
+    if hvd.rank() == 0:
+        local_checkpoint_path = params.scratch_dir.joinpath("train_checkpoints")
+        local_checkpoint_path.mkdir(parents=True)
+    else:
+        local_checkpoint_path = None
 
-    return parser.parse_args()
-
-
-###################### MAIN #####################
-
-
-def main():
-    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
-
-    # SET UP
-    args = parse_args()
-
-    # Read and maybe update params
-    params = get_params(args.params)
-    cmd_params = list(vars(args).items())
-    params.update({k: v for (k, v) in cmd_params if (k in params) and (v is not None)})
-    #dist_strategy = tf.distribute.MirroredStrategy()
-    # RUN
-    config = tf.estimator.RunConfig(
-        **params["runconfig_params"]
-        #train_distribute=dist_strategy
-    )
     est = tf.estimator.Estimator(
         model_fn,
-        params=params,
-        model_dir=params["model_dir"],
-        config=config,
+        model_dir=local_checkpoint_path.as_posix() if local_checkpoint_path else None,
+        params=params.dict(),
+        config=tf_config,
+        warm_start_from=warm_start_from,
     )
+    bcast_hook = hvd.BroadcastGlobalVariablesHook(0)
+    logger.info("end create tf estimator")
 
-    if params["mode"] == "train":
-        print("train_steps:", params["train_steps"])
-        est.train(input_fn=simulation_tf_record_input_fn, steps=params["train_steps"])
-    elif params["mode"] == "eval":
-        est.evaluate(input_fn=val_input_fn, name="validation")
-    else:
-        raise Exception(f"Unknown mode '{params['mode']}'")
+    seen_h5_files = set()
+    while True:
+        if hvd.rank() == 0:
+            all_h5_files = set(params.sim_data_dir.glob("*.h5"))
+        else:
+            all_h5_files = None
+        all_h5_files = comm.bcast(all_h5_files, root=0)
+        new_h5_files = all_h5_files.difference(seen_h5_files)
+        if len(new_h5_files) < params.num_h5s_per_training:
+            logger.info(
+                f"Got {len(new_h5_files)} out of {params.num_h5s_per_training} new H5s "
+                f"needed for training.  Sleeping..."
+            )
+            time.sleep(60)
+            continue
+        seen_h5_files.update(new_h5_files)
+        logger.info("start update_dataset")
+        if hvd.rank() == 0:
+            update_dataset(params.dict())
+        logger.info("end update_dataset")
+        comm.Barrier()
+
+        logger.info(f"start train (steps={params.train_steps})")
+        est.train(
+            input_fn=simulation_tf_record_input_fn,
+            steps=params.train_steps,
+            hooks=[bcast_hook],
+        )
+        logger.info(f"end train")
+
+        if hvd.rank() == 0:
+            for fname in local_checkpoint_path.glob("*"):
+                dest = shutil.copy(fname, params.checkpoint_path)
+                logger.info(f"Copied file: {dest}")
 
 
 if __name__ == "__main__":
-    main()
+    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-c", "--config-file", required=True)
+    yml_file = parser.parse_args().config_file
+    yml_file = Path(yml_file).resolve()
+    params = GPUTrainingRunConfig.from_yaml(yml_file)
+    main(params)

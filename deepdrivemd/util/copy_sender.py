@@ -2,12 +2,13 @@ from pathlib import Path
 import subprocess
 import logging
 import json
+import random
 import time
 
 logger = logging.getLogger(__name__)
 
 
-def retry_safe_Popen(args, max_retry=6):
+def retry_safe_Popen(args, max_retry=75):
     p = None
     for attempt in range(max_retry):
         try:
@@ -23,7 +24,7 @@ def retry_safe_Popen(args, max_retry=6):
         except Exception as e:
             logger.warning(f"Popen raised: {e}")
             logger.warning(f"Popen attempt {attempt+1}/{max_retry}")
-            time.sleep(3)
+            time.sleep(8*random.random()+4)
     if p is None:
         logger.error(f"Failed to Popen scp after {max_retry} attempts!")
         logger.error("Continuing and hoping for the best.")
@@ -49,7 +50,11 @@ class CopySender:
                 logger.info(f"Transfer succeeded: {p.args}")
             else:
                 # self.log_transfer_error(p) # TODO: fix me
-                logger.info(f"Transfer error: {p.args}")
+                logger.info(f"Transfer nonzero retcode (will retry): {p.args}")
+                retry_proc = retry_safe_Popen(p.args)
+                if retry_proc is not None:
+                    remaining_processes.append(retry_proc)
+
         self.processes = remaining_processes
         logger.debug(
             f"{self.__class__.__name__} has {len(self.processes)} active Popens left"
@@ -115,7 +120,7 @@ class LocalCopySender(CopySender):
             return
         try:
             time = float(line.split()[1])
-        except:
+        except (ValueError, IndexError):
             logger.warning("Could not parse cp timing from stdout")
             return
         else:
@@ -159,7 +164,7 @@ class RemoteCopySender(CopySender):
             dat = line.split()
             sent_bytes = int(dat[2].strip(","))
             time = float(dat[-2])
-        except:
+        except (ValueError, IndexError):
             logger.warning("Could not parse scp performance from stdout")
             return
         else:

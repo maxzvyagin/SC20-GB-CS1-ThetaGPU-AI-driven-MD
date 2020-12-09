@@ -1,7 +1,9 @@
 import logging
-import logging, logging.handlers
+import logging.handlers
 import sys
+import socket
 import time
+import threading
 
 __version__ = "0.1"
 
@@ -32,6 +34,16 @@ class PeriodicMemoryHandler(logging.handlers.MemoryHandler):
         self.target = target
         self.capacity = capacity
         self.flushOnClose = flushOnClose
+        self._flushing_thread = None
+        self._schedule_flush()
+
+    def _schedule_flush(self):
+        self.flush()
+        self._flushing_thread = threading.Timer(
+            interval=self.flush_period,
+            function=self._schedule_flush,
+        )
+        self._flushing_thread.start()
 
     def flush(self):
         super().flush()
@@ -65,6 +77,9 @@ def config_logging(filename, level, format, datefmt, buffer_num_records, flush_p
     mem_handler.setLevel(level)
     mem_handler.setFormatter(formatter)
     _logger.addHandler(mem_handler)
+    _logger.info(f"Logging on {socket.gethostname()}")
+    tf_logger = logging.getLogger("tensorflow")
+    tf_logger.addHandler(mem_handler)
 
 
 def log_uncaught_exceptions(exctype, value, tb):

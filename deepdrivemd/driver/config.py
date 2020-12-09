@@ -2,20 +2,36 @@
 import json
 import yaml
 from enum import Enum
-from pydantic import BaseSettings as _BaseSettings
 from pydantic import validator
+from pydantic import BaseSettings as _BaseSettings
 from pathlib import Path
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Union
+from typing import TypeVar, Type
+
+_T = TypeVar("_T")
 
 
 class BaseSettings(_BaseSettings):
     def dump_yaml(self, file):
         yaml.dump(json.loads(self.json()), file, indent=4)
 
+    @classmethod
+    def from_yaml(cls: Type[_T], filename: Union[str, Path]) -> _T:
+        with open(filename) as fp:
+            raw_data = yaml.safe_load(fp)
+        return cls(**raw_data)
+
 
 class MDType(str, Enum):
     implicit = "implicit"
     explicit = "explicit"
+
+
+class H5FrameGranularity(str, Enum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+    auto = "auto"
 
 
 class LoggingConfig(BaseSettings):
@@ -58,10 +74,10 @@ class MDRunnerConfig(BaseSettings):
     initial_configs_dir: Path
     reference_pdb_file: Optional[Path]
     sim_type: MDType
-    frames_per_h5: int = 1024
     temperature_kelvin: float = 310.0
     simulation_length_ns: float = 10
     report_interval_ps: float = 50
+    frames_per_h5: int = H5FrameGranularity.auto
     wrap: bool = False
     local_run_dir: Path = Path("/raid/scratch")
     md_run_command: str = "python run_openmm.py"
@@ -70,6 +86,30 @@ class MDRunnerConfig(BaseSettings):
         "conda activate /lus/theta-fs0/projects/RL-fold/venkatv/software/conda_env/a100_rapids_openmm",
         "export PYTHONPATH=/lus/theta-fs0/projects/RL-fold/msalim/SC20-GB-CS1-ThetaGPU-AI-driven-MD:$PYTHONPATH",
     ]
+
+    @validator("frames_per_h5", always=True, pre=True)
+    def frames_per_h5_validator(cls, v, values):
+        """If this condition is not met, there will be wasted MD data since not all
+        reports will be written to H5 due to the batching in the H5 reporter."""
+        total_frames = (
+            1000 * values["simulation_length_ns"] / values["report_interval_ps"]
+        )
+        if v == H5FrameGranularity.auto:
+            v = total_frames
+        # TODO: come up with a good value for each of these:
+        elif v == H5FrameGranularity.low:
+            v = total_frames
+        elif v == H5FrameGranularity.medium:
+            v = total_frames
+        elif v == H5FrameGranularity.high:
+            v = total_frames
+
+        if total_frames % v != 0:
+            raise ValueError(
+                "frames_per_h5 must evenly divide the total number of frames reported i.e. "
+                "(simulation_length_ns / report_interval_ps) %% frames_per_h5 == 0)"
+            )
+        return v
 
 
 class CVAEModelConfig(BaseSettings):
@@ -147,18 +187,53 @@ class OutlierDetectionRunConfig(OutlierDetectionUserConfig):
     logging: LoggingConfig
     model_params: CVAEModelConfig
     md_dir: Path
-    cvae_dir: Path
+    model_weights_dir: Path
     walltime_min: int
     outlier_predict_batch_size: int
 
 
+class GPUTrainStrategy(str, Enum):
+    single_gpu = "single_gpu"
+    horovod = "horovod"
+    multi_gpu = "multi_gpu"
+
+
 class GPUTrainingUserConfig(BaseSettings):
-    horovod_num_ranks: int = 1
-    horovod_num_ranks_per_node: int = 1
+    num_nodes: int = 1
+    ranks_per_node: int = 1
+    gpus_per_node: int = 8
+    run_command: str = (
+        "singularity run -B /lus:/lus:rw -B /raid/scratch:/raid/scratch:rw --nv "
+        "/lus/theta-fs0/projects/RL-fold/msalim/tensorflow_20.09-tf1-py3.sif "
+        "/lus/theta-fs0/projects/RL-fold/msalim/tf1-ngc-env/bin/python -m deepdrivemd.models.symmetric_cvae.train_gpu"
+    )
+    scratch_dir: Path = Path("/raid/scratch")
+    environ_setup: List[str] = []
+
+    num_frames_per_training: int = 16_000
+    initial_weights_dir: Optional[Path]
+
+    # Run params
+    mode: str = "train"
+    train_steps: int = 10
+    eval_steps: int = 2
+    runconfig_params: Dict[str, int] = {
+        "save_checkpoints_steps": 10,
+        "keep_checkpoint_max": 3,
+        "save_summary_steps": 10,
+        "log_step_count_steps": 10,
+    }
+    strategy: GPUTrainStrategy = GPUTrainStrategy.single_gpu
 
 
 class GPUTrainingRunConfig(CVAEModelConfig, GPUTrainingUserConfig):
-    pass
+    sim_data_dir: Path
+    data_dir: Path  # a tfrecords dir
+    eval_data_dir: Path  # same as above
+    global_path: Path  # files_seen36.txt
+    checkpoint_path: Path
+    logging: LoggingConfig
+    num_h5s_per_training: int
 
 
 class CS1TrainingUserConfig(BaseSettings):
@@ -204,19 +279,13 @@ class ExperimentConfig(BaseSettings):
     cs1_training: Optional[CS1TrainingUserConfig] = None
 
 
-def read_yaml_config(fname: str) -> ExperimentConfig:
-    with open(fname) as fp:
-        data = yaml.safe_load(fp)
-    return ExperimentConfig(**data)
-
-
 def generate_sample_config():
     md_runner = MDRunnerConfig(
         num_jobs=10,
         initial_configs_dir="/path/to/initial_pdbs_and_tops",
         reference_pdb_file="/path/to/reference.pdb",
         sim_type="explicit",
-        frames_per_h5=1024,
+        frames_per_h5="auto",
     )
     model = CVAEModelConfig()
     logging = LoggingConfig()

@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from tempfile import NamedTemporaryFile
+from typing import List, Optional
 import json
 from pathlib import Path
 import time
@@ -10,22 +11,15 @@ import queue
 import numpy as np
 import itertools
 
-import tensorflow as tf
 import h5py
 
 import MDAnalysis as mda
 
 from deepdrivemd import config_logging
 from deepdrivemd.util import FileLock
-from deepdrivemd.driver.config import OutlierDetectionRunConfig, CVAEModelConfig
+from deepdrivemd.driver.config import OutlierDetectionRunConfig
 
-from deepdrivemd.models.symmetric_cvae.utils import (
-    write_to_tfrecords,
-    write_single_tfrecord,
-)
-from deepdrivemd.models.symmetric_cvae.data import parse_function_record_predict
-from deepdrivemd.models.symmetric_cvae.model import model_fn
-
+from deepdrivemd.models.symmetric_cvae.predict_gpu import TFEstimatorModel
 
 from deepdrivemd.outlier.utils import outlier_search_lof
 from deepdrivemd.outlier.utils import find_frame
@@ -33,7 +27,6 @@ from deepdrivemd.outlier.utils import find_frame
 import logging
 
 logger = None
-tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.DEBUG)
 
 
 def get_config():
@@ -51,32 +44,35 @@ class OutlierDetectionContext:
         local_scratch_dir: Path,
         outlier_results_dir: Path,
         md_dir: Path,
-        cvae_dir: Path,
+        model_weights_dir: Path,
         max_num_old_h5_files: int,
         model_params: dict,
         outlier_predict_batch_size: int,
         **kwargs,
     ):
         self.md_dir = Path(md_dir).resolve()
-        self.cvae_dir = Path(cvae_dir).resolve()
+        self.model_weights_dir = Path(model_weights_dir).resolve()
 
         self._local_scratch_dir = local_scratch_dir
         self._outlier_results_dir = outlier_results_dir
-        self.tfrecords_dir = local_scratch_dir.joinpath("tfrecords")
-        self.tfrecords_dir.mkdir(exist_ok=True)
+        self._outlier_pdbs_dir = outlier_results_dir.joinpath("outlier_pdbs")
+        self._outlier_pdbs_dir.mkdir()
         self._seen_h5_files_set = set()
 
-        self.cvae_weights_file = None
         self._last_acquired_cvae_lock = None
         self._md_input_dirs = None
         self._h5_dcd_map = {}
         self.dcd_h5_map = {}
         self._pdb_outlier_queue = queue.PriorityQueue()
-        self._model_params = model_params
         self._h5_contact_map_length = None
         self.max_num_old_h5_files = max_num_old_h5_files
         self._seen_outliers = set()
-        self._outlier_predict_batch_size = outlier_predict_batch_size
+        self.model = TFEstimatorModel(
+            local_scratch_dir,
+            model_params,
+            outlier_predict_batch_size,
+            self.model_weights_dir,
+        )
 
     @property
     def h5_files(self):
@@ -93,17 +89,23 @@ class OutlierDetectionContext:
         return self._md_input_dirs
 
     def put_outlier(
-        self, dcd_filename, frame_index, created_time, intrinsic_score, extrinsic_score
+        self,
+        dcd_filename,
+        frame_index,
+        created_time,
+        intrinsic_score,
+        extrinsic_score,
+        outlier_ind,
     ):
         assert created_time > 0
         assert intrinsic_score < 0
-        if extrinsic_score == None:
+        if extrinsic_score is None:
             extrinsic_score = 0
         # TODO: Make combined score or have a function to compute the score
         #       which the user can specify score_func(dcd_file, frame_index) -> score
         #       where score is any object with a comparison operator (<).
         score = (-1 * created_time, extrinsic_score, intrinsic_score)
-        outlier = (dcd_filename, frame_index)
+        outlier = (dcd_filename, frame_index, outlier_ind)
         # Only keep new outliers
         if outlier in self._seen_outliers:
             logger.info(f"Outlier seen before: {outlier}")
@@ -114,22 +116,45 @@ class OutlierDetectionContext:
 
     def _get_outlier(self):
         try:
-            _, outlier = self._pdb_outlier_queue.get(block=False)
+            score, outlier = self._pdb_outlier_queue.get(block=False)
         except queue.Empty:
             return None
         else:
-            return outlier
+            return score, outlier
 
     def get_open_md_input_slots(self):
         return [d for d in self.md_input_dirs if not list(d.glob("*.pdb"))]
 
-    def send(self):
+    def send_outliers(self) -> List[dict]:
         # Blocks until all PDBs are sent
         md_dirs = self.get_open_md_input_slots()
         logger.info(f"Sending new outlier pdbs to {len(md_dirs)} dirs")
+
+        outliers = []
         with ThreadPoolExecutor(max_workers=8) as ex:
-            for _ in ex.map(self.dispatch_next_outlier, md_dirs):
-                pass
+            for data in ex.map(self.dispatch_next_outlier, md_dirs):
+                if data is not None:
+                    outliers.append(data)
+        return outliers
+
+    def backup_pdbs(self, outlier_results: List[dict], creation_time: int):
+        count = len(outlier_results)
+        logger.info(
+            f"Moving {count} pdb files from local storage to {self._outlier_pdbs_dir}"
+        )
+        start = time.time()
+
+        # Make new outlier pdb dir each iteration of outlier detection
+        # to avoid the edge case where the same pdb is found in different iterations
+        outlier_pdb_dir = self._outlier_pdbs_dir.joinpath(str(creation_time))
+        outlier_pdb_dir.mkdir()
+
+        for outlier in outlier_results:
+            dest = shutil.move(outlier["pdb_filename"], outlier_pdb_dir)
+            outlier["pdb_filename"] = dest
+
+        elapsed = time.time() - start
+        logger.info(f"Moved {count} pdb files in {elapsed:.2f} seconds")
 
     def generate_pdb_file(self, dcd_filename: Path, frame_index: int) -> Path:
         logger.debug(
@@ -147,8 +172,12 @@ class OutlierDetectionContext:
         temp_pdb.close()
         temp_dcd = NamedTemporaryFile(dir=self._local_scratch_dir, suffix=".dcd")
         temp_dcd.close()
-        local_pdb = shutil.copy(pdb_path.as_posix(), Path(temp_pdb.name).resolve().as_posix())
-        local_dcd = shutil.copy(dcd_filename.as_posix(), Path(temp_dcd.name).resolve().as_posix())
+        local_pdb = shutil.copy(
+            pdb_path.as_posix(), Path(temp_pdb.name).resolve().as_posix()
+        )
+        local_dcd = shutil.copy(
+            dcd_filename.as_posix(), Path(temp_dcd.name).resolve().as_posix()
+        )
 
         mda_traj = mda.Universe(local_pdb, local_dcd)
         mda_traj.trajectory[frame_index]
@@ -157,23 +186,44 @@ class OutlierDetectionContext:
         PDB.write(mda_traj.atoms)
         return outlier_pdb_file
 
-    def dispatch_next_outlier(self, input_dir):
-        outlier = self._get_outlier()
-        if outlier is None:
-            return
+    def dispatch_next_outlier(self, input_dir) -> Optional[dict]:
+        item = self._get_outlier()
+        if item is None:
+            return None
 
-        dcd_filename, frame_index = outlier
-        logger.debug(f"Creating outlier .pdb from {dcd_filename} frame {frame_index}")
+        score, outlier = item
+        _, extrinsic_score, intrinsic_score = score
+
+        if extrinsic_score is not None:
+            extrinsic_score = float(extrinsic_score)
+        if intrinsic_score is not None:
+            intrinsic_score = float(intrinsic_score)
+
+        dcd_filename, frame_index, outlier_ind = outlier
+
+        logger.debug(
+            f"Creating outlier .pdb from {dcd_filename} frame {frame_index} outlier_ind {outlier_ind}"
+        )
         outlier_pdb_file = self.generate_pdb_file(dcd_filename, frame_index)
         logger.debug("outlier .pdb write done")
         target = input_dir.joinpath(outlier_pdb_file.name)
+
         logger.debug(f"Acquiring FileLock to write {target}")
         with FileLock(target):
             logger.debug(f"FileLock acquired")
             start = time.perf_counter()
-            shutil.move(outlier_pdb_file.as_posix(), target)
+            shutil.copy(outlier_pdb_file.as_posix(), target)
             elapsed = time.perf_counter() - start
-            logger.debug(f"shutil.move wrote {target.name} in {elapsed:.2f} seconds")
+            logger.debug(f"shutil.copy wrote {target} in {elapsed:.2f} seconds")
+
+        return {
+            "extrinsic_score": extrinsic_score,
+            "intrinsic_score": intrinsic_score,
+            "outlier_ind": int(outlier_ind),
+            "dcd_filename": str(dcd_filename),
+            "frame_index": int(frame_index),
+            "pdb_filename": outlier_pdb_file.as_posix(),
+        }
 
     def rescan_h5_dcd(self):
         # We *always* want to scan at least once
@@ -191,16 +241,12 @@ class OutlierDetectionContext:
             if got_new_h5 < 80:
                 time.sleep(10)
 
-    def update_model(self):
-        """Gets most recent model weights."""
-        while True:
-            self.cvae_weights_file = tf.train.latest_checkpoint(self.cvae_dir)
-            if self.cvae_weights_file is not None:
-                break
+    def await_model_weights(self):
+        """Blocks until model has weights"""
+        while self.model.get_weights_file() is None:
             logger.debug("Outlier detection waiting for model checkpoint file")
             time.sleep(10)
         time.sleep(10)
-        self.cvae_weights_file = tf.train.latest_checkpoint(self.cvae_dir)
 
     @property
     def h5_length(self):
@@ -232,92 +278,25 @@ class OutlierDetectionContext:
         )  # self.dcd_files is @property; don't put in listcomp!
         dcd_files = [all_dcd_files[i] for i in indices]
 
-        # tf.data.Dataset.list_files expects a list of strings, not pathlib.Path objects!
-        # as_posix() converts a Path to a string
-        tfrecord_files = [
-            self.tfrecords_dir.joinpath(f.with_suffix(".tfrecords").name).as_posix()
-            for f in dcd_files
-        ]
-        logger.debug(
-            f"update_dataset: Will predict from tfrecord_files={tfrecord_files}"
-        )
-
+        model_input = self.model.preprocess(new_h5_files, dcd_files)
         self._seen_h5_files_set.update(new_h5_files)
-
-        # Write to local node storage
-        for h5_file in new_h5_files:
-            write_single_tfrecord(
-                h5_file=h5_file,
-                initial_shape=self._model_params["h5_shape"][1:],
-                final_shape=self._model_params["tfrecord_shape"][1:],
-                tfrecord_dir=self.tfrecords_dir,
-            )
-
-        # Use files closure to get correct data sample
-        def data_generator():
-            dtype = tf.float16 if self._model_params["mixed_precision"] else tf.float32
-            list_files = tf.data.Dataset.list_files(tfrecord_files)
-            dataset = tf.data.TFRecordDataset(list_files)
-
-            # TODO: We want drop_remainder=False but this needs to be rewritten:
-            dataset = dataset.batch(
-                self._outlier_predict_batch_size, drop_remainder=True
-            )
-            parse_sample = parse_function_record_predict(
-                dtype,
-                self._model_params["tfrecord_shape"],
-                self._model_params["input_shape"],
-            )
-            return dataset.map(parse_sample)
-
-        return (dcd_files, data_generator)
+        return (dcd_files, model_input)
 
     def backup_array(self, results, name, creation_time):
+        if isinstance(results, list):
+            results = np.array(results)
         result_file = self._outlier_results_dir.joinpath(f"{name}-{creation_time}.npy")
         np.save(result_file, results)
 
-    def backup_dict(self, results, name, creation_time):
+    def backup_json(self, results, name, creation_time):
         # Convert numeric arrays to string for JSON serialization
-        json_result = {}
-        for key, val in results.items():
-            json_result[key] = list(map(str, val))
-
         result_file = self._outlier_results_dir.joinpath(f"{name}-{creation_time}.json")
         with open(result_file, "w") as f:
-            json.dump(json_result, f)
+            json.dump(results, f, indent=4)
 
     def halt_simulations(self):
         for md_dir in self.md_input_dirs:
             md_dir.joinpath("halt").touch()
-
-
-def predict_from_cvae(
-    workdir: Path,
-    weights_file: str,
-    config: CVAEModelConfig,
-    data_generator,
-    outlier_predict_batch_size: int,
-):
-    params = config.dict()
-    params["sim_data_dir"] = workdir.as_posix()
-    params["data_dir"] = workdir.as_posix()
-    params["eval_data_dir"] = workdir.as_posix()
-    params["global_path"] = workdir.joinpath("files_seen.txt").as_posix()
-    params["fraction"] = 0.0
-    params["batch_size"] = outlier_predict_batch_size
-
-    tf_config = tf.estimator.RunConfig()
-    est = tf.estimator.Estimator(
-        model_fn,
-        params=params,
-        config=tf_config,
-    )
-    gen = est.predict(
-        input_fn=data_generator,
-        checkpoint_path=weights_file,
-        yield_single_examples=True,
-    )
-    return np.array([list(it.values())[0] for it in gen])
 
 
 def main():
@@ -336,21 +315,13 @@ def main():
     while True:
         # Will block until the first H5 files are received
         ctx.rescan_h5_dcd()
-        dcd_files, data_generator = ctx.update_dataset()
+        dcd_files, model_input_data = ctx.update_dataset()
 
         # NOTE: It's up to the ML service to do model selection;
         # we're assuming the latest cvae weights file has the best model
-        ctx.update_model()
+        ctx.await_model_weights()
 
-        assert ctx.cvae_weights_file is not None
-        logger.info(f"start model prediction with weights: {ctx.cvae_weights_file}")
-        embeddings = predict_from_cvae(
-            ctx.tfrecords_dir,
-            ctx.cvae_weights_file,
-            config.model_params,
-            data_generator,
-            config.outlier_predict_batch_size,
-        )
+        embeddings = ctx.model.predict(model_input_data)
         logger.info(f"end model prediction: generated {len(embeddings)} embeddings")
 
         logger.info(
@@ -369,42 +340,53 @@ def main():
         logger.debug(f"ctx.h5_length = {ctx.h5_length}")
         traj_dict = dict(zip(dcd_files, itertools.cycle([ctx.h5_length])))
 
-        # Collect extrinsic scores for logging
-        extrinsic_scores = []
+        # Collect rmsds from all h5 files
+        rmsds = {}
+        for dcd_filename in dcd_files:
+            h5_file = ctx.dcd_h5_map[dcd_filename]
+            with h5py.File(h5_file, "r") as f:
+                if "rmsd" in f.keys():
+                    rmsds[dcd_filename] = f["rmsd"][...]
+                else:
+                    break
+
         # Identify new outliers and add to queue
         creation_time = int(time.time())
         for outlier_ind, outlier_score in zip(outlier_inds, outlier_scores):
             # find the location of outlier in it's DCD file
             frame_index, dcd_filename = find_frame(traj_dict, outlier_ind)
 
-            # Rank the outlier PDBs according to their RMSD to reference state
-            if config.extrinsic_outlier_score == "rmsd_to_reference_state":
-                h5_file = ctx.dcd_h5_map[dcd_filename]
-                with h5py.File(h5_file, "r") as f:
-                    extrinsic_score = f["rmsd"][...][frame_index]
+            # Select optional extrinsic score
+            if rmsds and config.extrinsic_outlier_score == "rmsd_to_reference_state":
+                extrinsic_score = rmsds[dcd_filename][frame_index]
             else:
                 extrinsic_score = None
 
-            if extrinsic_score is not None:
-                extrinsic_scores.append(extrinsic_score)
-
             ctx.put_outlier(
-                dcd_filename, frame_index, creation_time, outlier_score, extrinsic_score
+                dcd_filename,
+                frame_index,
+                creation_time,
+                outlier_score,
+                extrinsic_score,
+                outlier_ind,
             )
 
         # Send outliers to MD simulation jobs
-        ctx.send()
+        outlier_results = ctx.send_outliers()
         logger.info("Finished sending new outliers")
 
-        # Results dictionary storing outlier_inds, intrinsic & extrinsic scores
-        results = {
-            "outlier_inds": outlier_inds,
-            "intrinsic_scores": outlier_scores,
-            "extrinsic_scores": extrinsic_scores,
-        }
+        # outlier_results is a List of result_dicts:
+        # With the keys: {extrinsic_score, intrinsic_score, dcd_filename, frame_index, pdb_filename}
 
+        # Move outliers from scratch to persistent location
+        ctx.backup_pdbs(outlier_results, creation_time)
         ctx.backup_array(embeddings, "embeddings", creation_time)
-        ctx.backup_dict(results, "outliers", creation_time)
+        if rmsds:
+            rmsds = np.concatenate(list(rmsds.values()))
+            # Handles case when embeddings are dropped due to `drop_remainder`:
+            rmsds = rmsds[: len(embeddings)]
+            ctx.backup_array(rmsds, "rmsds", creation_time)
+        ctx.backup_json(outlier_results, "outliers", creation_time)
 
         # Compute elapsed time
         mins, secs = divmod(int(time.time() - start_time), 60)

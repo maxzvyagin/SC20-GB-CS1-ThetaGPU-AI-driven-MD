@@ -54,7 +54,7 @@ def _launch_cs1_trainer(
 ):
     top_dir = training_config.medulla_experiment_path
     stop_path = top_dir.joinpath(STOP_FILENAME)
-    result = conn.run(
+    conn.run(
         f"export stop_file={stop_path} && "
         f"export global_path={training_config.global_path} && "
         f"export sim_data_dir={training_config.sim_data_dir} && "
@@ -101,7 +101,7 @@ class CS1Training:
         self,
         user_config: CS1TrainingUserConfig,
         model_config: CVAEModelConfig,
-        cvae_weights_dir: Path,
+        model_weights_dir: Path,
         frames_per_h5: int,
     ):
         top_dir = user_config.medulla_experiment_path
@@ -114,7 +114,7 @@ class CS1Training:
             eval_data_dir=top_dir.joinpath("eval_records_loop"),
             global_path=top_dir.joinpath("files_seen.txt"),
             model_dir=top_dir.joinpath("model_dir"),
-            theta_gpu_path=cvae_weights_dir,
+            theta_gpu_path=model_weights_dir,
         )
 
         conn = get_connection(user_config.hostname)

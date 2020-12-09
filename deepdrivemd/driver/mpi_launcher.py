@@ -2,17 +2,14 @@ from pathlib import Path
 from itertools import combinations
 from typing import List, Dict, Tuple, Set
 import os
-import getpass
 import subprocess
-import tempfile
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 IDENTITY_FILE = os.environ.setdefault(
-    "MEDULLA_IDENTITY_FILE",
-    os.path.expanduser("~/.ssh/id_rsa_medulla"),
+    "MEDULLA_IDENTITY_FILE", os.path.expanduser("~/.ssh/id_rsa_medulla"),
 )
 
 

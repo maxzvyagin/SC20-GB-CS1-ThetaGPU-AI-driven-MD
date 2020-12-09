@@ -8,13 +8,15 @@ from pathlib import Path
 
 from .mpi_launcher import ComputeNodeManager, MPIRun, ComputeNode
 from .config import (
-    read_yaml_config,
     MDConfig,
     MDRunnerConfig,
     ExperimentConfig,
     OutlierDetectionUserConfig,
     OutlierDetectionRunConfig,
     LoggingConfig,
+    GPUTrainingUserConfig,
+    GPUTrainingRunConfig,
+    CVAEModelConfig,
 )
 from .cs1_manager import CS1Training
 
@@ -88,7 +90,10 @@ def launch_md(
 
 
 def dispatch_md_runs(
-    md_dir: Path, manager: ComputeNodeManager, config: ExperimentConfig
+    md_dir: Path,
+    manager: ComputeNodeManager,
+    config: ExperimentConfig,
+    h5_scp_path: Optional[str],
 ) -> Tuple[List[MPIRun], Path]:
     """
     Launch the full set of MD Runs for this experiment
@@ -99,17 +104,9 @@ def dispatch_md_runs(
     pdb_files = list(config.md_runner.initial_configs_dir.glob("*/*.pdb"))
     random.shuffle(pdb_files)
 
-    if config.cs1_training is not None:
-        remote_experiment_path = config.cs1_training.medulla_experiment_path
-        h5_dest = remote_experiment_path.joinpath("h5_data")
-        h5_scp_path = f"{config.cs1_training.hostname}:{h5_dest}"
-    else:
-        h5_scp_path = None
-
     for pdb_file, i in zip(
         itertools.cycle(pdb_files), range(config.md_runner.num_jobs)
     ):
-        pdb_dir = pdb_file.parent.name
         nodes, gpu_ids = manager.request(num_nodes=1, gpus_per_node=1)
         omm_dir_prefix = f"run{i:04d}"
         run = launch_md(
@@ -133,7 +130,7 @@ def dispatch_od_run(
     outlier_predict_batch_size: int,
     logging_cfg,
     model_params,
-    cvae_dir,
+    model_weights_dir,
     walltime_min,
     experiment_dir,
 ):
@@ -147,7 +144,7 @@ def dispatch_od_run(
         logging=logging_cfg,
         model_params=model_params,
         md_dir=md_dir,
-        cvae_dir=cvae_dir,
+        model_weights_dir=model_weights_dir,
         walltime_min=walltime_min,
         outlier_predict_batch_size=outlier_predict_batch_size,
         outlier_results_dir=outlier_results_dir,
@@ -168,50 +165,125 @@ def dispatch_od_run(
     return od_run
 
 
-class LocalTraining:
-    def __init__(self, config: ExperimentConfig):
-        self.config = config
+def dispatch_gpu_training(
+    manager,
+    experiment_dir: Path,
+    user_config: GPUTrainingUserConfig,
+    model_config: CVAEModelConfig,
+    model_weights_dir: Path,
+    frames_per_h5: int,
+    logging_cfg,
+):
+    top_dir = experiment_dir.joinpath("gpu_training")
+    top_dir.mkdir(exist_ok=True)
+
+    sim_data_dir = top_dir.joinpath("h5_data")
+    data_dir = top_dir.joinpath("records_loop")
+    eval_data_dir = top_dir.joinpath("eval_records_loop")
+
+    sim_data_dir.mkdir()
+    data_dir.mkdir()
+    eval_data_dir.mkdir()
+    global_path = top_dir.joinpath("files_seen.txt")
+
+    logger.info(f"Created gpu train dir: {top_dir}")
+
+    num_h5s, rem = divmod(user_config.num_frames_per_training, frames_per_h5)
+    if rem != 0:
+        raise ValueError(
+            f"frames_per_h5 {frames_per_h5} must evenly divide "
+            f"num_frames_per_training {user_config.num_frames_per_training}"
+        )
+
+    config = GPUTrainingRunConfig(
+        **user_config.dict(),
+        **model_config.dict(),
+        sim_data_dir=sim_data_dir,
+        data_dir=data_dir,
+        eval_data_dir=eval_data_dir,
+        global_path=global_path,
+        checkpoint_path=model_weights_dir,
+        logging=logging_cfg,
+        num_h5s_per_training=num_h5s,
+    )
+    cfg_path = top_dir.joinpath("config.yaml")
+    with open(cfg_path, "w") as fp:
+        config.dump_yaml(fp)
+
+    nodes, gpu_ids = manager.request(
+        num_nodes=user_config.num_nodes,
+        gpus_per_node=user_config.gpus_per_node,
+    )
+    MPIRun.set_preamble_commands(*user_config.environ_setup)
+    train_run = MPIRun(
+        user_config.run_command + f" -c {cfg_path}",
+        node_list=nodes,
+        ranks_per_node=user_config.ranks_per_node,
+        gpu_ids=gpu_ids,
+        output_file=cfg_path.parent.joinpath("train.out"),
+    )
+    return train_run
 
 
 def main(config_filename: str):
     global logger
     start = time.time()
-    config = read_yaml_config(config_filename)
+    config = ExperimentConfig.from_yaml(config_filename)
 
     config.experiment_directory.mkdir(exist_ok=False)
     md_dir = config.experiment_directory.joinpath("md_runs")
-    cvae_weights_dir = config.experiment_directory.joinpath("cvae_weights")
-    cvae_weights_dir.mkdir()
+    model_weights_dir = config.experiment_directory.joinpath("model_weights")
+    model_weights_dir.mkdir()
     md_dir.mkdir()
 
     log_fname = config.experiment_directory.joinpath("experiment_main.log").as_posix()
     config_logging(filename=log_fname, **config.logging.dict())
     logger = logging.getLogger("deepdrivemd.driver.experiment_main")
+    manager = ComputeNodeManager()
 
     if config.cs1_training is not None:
+        logger.info("Dispatching CS1 Training")
         cs1_training = CS1Training(
             config.cs1_training,
             config.cvae_model,
-            cvae_weights_dir,
+            model_weights_dir,
             config.md_runner.frames_per_h5,
         )
         gpu_training = None
+        remote_experiment_path = config.cs1_training.medulla_experiment_path
+        h5_dest = remote_experiment_path.joinpath("h5_data")
+        h5_scp_path = f"{config.cs1_training.hostname}:{h5_dest}"
     elif config.gpu_training is not None:
+        logger.info("Dispatching GPU Training")
         cs1_training = None
-        gpu_training = LocalTraining(config)
+        gpu_training = dispatch_gpu_training(
+            manager=manager,
+            user_config=config.gpu_training,
+            experiment_dir=config.experiment_directory,
+            model_config=config.cvae_model,
+            model_weights_dir=model_weights_dir,
+            frames_per_h5=config.md_runner.frames_per_h5,
+            logging_cfg=config.logging,
+        )
+        h5_scp_path = (
+            config.experiment_directory.joinpath("gpu_training")
+            .joinpath("h5_data")
+            .as_posix()
+        )
     else:
+        logger.info("Training is disabled for this run")
         cs1_training = None
         gpu_training = None
+        h5_scp_path = None
 
-    manager = ComputeNodeManager()
-    md_runs, md_dir = dispatch_md_runs(md_dir, manager, config)
+    md_runs, md_dir = dispatch_md_runs(md_dir, manager, config, h5_scp_path)
     od_run = dispatch_od_run(
         manager=manager,
         user_config=config.outlier_detection,
         md_dir=md_dir,
         logging_cfg=config.logging,
         model_params=config.cvae_model,
-        cvae_dir=cvae_weights_dir,
+        model_weights_dir=model_weights_dir,
         walltime_min=config.walltime_min,
         experiment_dir=config.experiment_directory,
         outlier_predict_batch_size=config.md_runner.frames_per_h5,
@@ -229,6 +301,11 @@ def main(config_filename: str):
 
     if cs1_training is not None:
         cs1_training.stop()
+    if gpu_training is not None:
+        gpu_training.process.terminate()
+        time.sleep(10)
+        gpu_training.poll()
+    od_run.process.terminate()
 
 
 if __name__ == "__main__":
