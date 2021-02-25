@@ -8,8 +8,9 @@ import time
 import tensorflow as tf
 import horovod.tensorflow as hvd
 import mpi4py
+
 mpi4py.rc.initialize = False
-from mpi4py import MPI # noqa: E402
+from mpi4py import MPI  # noqa: E402
 
 from deepdrivemd.models.symmetric_cvae.model import model_fn
 from deepdrivemd.models.symmetric_cvae.data import simulation_tf_record_input_fn
@@ -43,7 +44,7 @@ def main(params: GPUTrainingRunConfig):
     session_config = tf.ConfigProto()
     session_config.gpu_options.allow_growth = True
     tf_config = tf.estimator.RunConfig(
-         session_config=session_config, **params.runconfig_params
+        session_config=session_config, **params.runconfig_params
     )
     if hvd.rank() == 0:
         local_checkpoint_path = params.scratch_dir.joinpath("train_checkpoints")

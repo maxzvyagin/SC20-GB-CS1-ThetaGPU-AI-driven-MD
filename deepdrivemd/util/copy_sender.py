@@ -24,7 +24,7 @@ def retry_safe_Popen(args, max_retry=75):
         except Exception as e:
             logger.warning(f"Popen raised: {e}")
             logger.warning(f"Popen attempt {attempt+1}/{max_retry}")
-            time.sleep(8*random.random()+4)
+            time.sleep(8 * random.random() + 4)
     if p is None:
         logger.error(f"Failed to Popen scp after {max_retry} attempts!")
         logger.error("Continuing and hoping for the best.")

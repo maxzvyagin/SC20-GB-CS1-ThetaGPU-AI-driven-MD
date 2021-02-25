@@ -72,10 +72,17 @@ def deconv2d(
 
 
 def dense(
-    inputs, units, activation, name="dense", use_bias=True,
+    inputs,
+    units,
+    activation,
+    name="dense",
+    use_bias=True,
 ):
     net = tf.keras.layers.Dense(
-        name=name, units=units, activation=activation, use_bias=use_bias,
+        name=name,
+        units=units,
+        activation=activation,
+        use_bias=use_bias,
     )(inputs)
 
     tf.compat.v1.logging.info(f"Shape net after {net.name}: {net.get_shape()}")
@@ -83,14 +90,24 @@ def dense(
 
 
 def variational_embedding(
-    inputs, latent_ndim, kl_loss_reduction_type="sum", fp_loss=False, name="embedding",
+    inputs,
+    latent_ndim,
+    kl_loss_reduction_type="sum",
+    fp_loss=False,
+    name="embedding",
 ):
     mean = dense(
-        inputs=inputs, units=latent_ndim, activation=None, name="enc_dense_mean",
+        inputs=inputs,
+        units=latent_ndim,
+        activation=None,
+        name="enc_dense_mean",
     )
 
     logvar = dense(
-        inputs=inputs, units=latent_ndim, activation=None, name="enc_dense_logvar",
+        inputs=inputs,
+        units=latent_ndim,
+        activation=None,
+        name="enc_dense_logvar",
     )
 
     # Sample embedding
@@ -185,7 +202,10 @@ def build_model(net, params):
 
     # Encoder dense layers
     net = dense(
-        inputs=net, units=dense_units, activation=activation, name=f"enc_dense_1",
+        inputs=net,
+        units=dense_units,
+        activation=activation,
+        name=f"enc_dense_1",
     )
 
     # Embedding
@@ -203,11 +223,17 @@ def build_model(net, params):
 
     # Decoder dense layers
     net = dense(
-        inputs=net, units=dense_units, activation=activation, name=f"dec_dense_1",
+        inputs=net,
+        units=dense_units,
+        activation=activation,
+        name=f"dec_dense_1",
     )
 
     net = dense(
-        inputs=net, units=unflatten_nelem, activation=activation, name=f"dec_dense_2",
+        inputs=net,
+        units=unflatten_nelem,
+        activation=activation,
+        name=f"dec_dense_2",
     )
 
     # Unflatten

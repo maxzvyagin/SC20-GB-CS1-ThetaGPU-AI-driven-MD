@@ -38,7 +38,7 @@ def get_config():
     return OutlierDetectionRunConfig(**dict_config)
 
 
-class OutlierDetectionContext:
+class AgentBase:
     def __init__(
         self,
         local_scratch_dir: Path,
@@ -59,7 +59,6 @@ class OutlierDetectionContext:
         self._outlier_pdbs_dir.mkdir()
         self._seen_h5_files_set = set()
 
-        self._last_acquired_cvae_lock = None
         self._md_input_dirs = None
         self._h5_dcd_map = {}
         self.dcd_h5_map = {}
@@ -273,14 +272,16 @@ class OutlierDetectionContext:
         )
 
         indices = old_h5_indices + new_h5_indices
-        all_dcd_files = (
-            self.dcd_files
-        )  # self.dcd_files is @property; don't put in listcomp!
-        dcd_files = [all_dcd_files[i] for i in indices]
 
-        model_input = self.model.preprocess(new_h5_files, dcd_files)
+        # self.dcd_files and self.h5_files are @property; don't put in listcomp!
+        all_dcd_files = self.dcd_files
+        all_h5_files = self.h5_files
+        dcd_files = [all_dcd_files[i] for i in indices]
+        h5_files = [all_h5_files[i] for i in indices]
+
+        self.model.preprocess(h5_files)
         self._seen_h5_files_set.update(new_h5_files)
-        return (dcd_files, model_input)
+        return dcd_files
 
     def backup_array(self, results, name, creation_time):
         if isinstance(results, list):
@@ -298,9 +299,108 @@ class OutlierDetectionContext:
         for md_dir in self.md_input_dirs:
             md_dir.joinpath("halt").touch()
 
+    def main():
+        raise NotImplementedError
 
-def main():
-    global logger
+
+class LOFAgent(AgentBase):
+    def main():
+        start_time = time.time()
+        while True:
+            # Will block until the first H5 files are received
+            self.rescan_h5_dcd()
+            dcd_files, model_input_data = self.update_dataset()
+
+            # NOTE: It's up to the ML service to do model selection;
+            # we're assuming the latest cvae weights file has the best model
+            self.await_model_weights()
+
+            embeddings = self.model.predict()
+            logger.info(f"end model prediction: generated {len(embeddings)} embeddings")
+
+            logger.info(
+                f"Starting outlier searching with n_outliers="
+                f"{config.num_outliers} and n_jobs={config.sklearn_num_cpus}"
+            )
+
+            outlier_inds, outlier_scores = outlier_search_lof(
+                embeddings,
+                n_outliers=config.num_outliers,
+                n_jobs=config.sklearn_num_cpus,
+            )
+            logger.info("Done with outlier searching")
+
+            # A record of every trajectory length (they are all the same)
+            logger.debug("Building traj_dict:")
+            logger.debug(f"dcd_files = {dcd_files}")
+            logger.debug(f"ctx.h5_length = {self.h5_length}")
+            traj_dict = dict(zip(dcd_files, itertools.cycle([self.h5_length])))
+
+            # Collect rmsds from all h5 files
+            rmsds = {}
+            for dcd_filename in dcd_files:
+                h5_file = self.dcd_h5_map[dcd_filename]
+                with h5py.File(h5_file, "r") as f:
+                    if "rmsd" in f.keys():
+                        rmsds[dcd_filename] = f["rmsd"][...]
+                    else:
+                        break
+
+            # Identify new outliers and add to queue
+            creation_time = int(time.time())
+            for outlier_ind, outlier_score in zip(outlier_inds, outlier_scores):
+                # find the location of outlier in it's DCD file
+                frame_index, dcd_filename = find_frame(traj_dict, outlier_ind)
+
+                # Select optional extrinsic score
+                if (
+                    rmsds
+                    and config.extrinsic_outlier_score == "rmsd_to_reference_state"
+                ):
+                    extrinsic_score = rmsds[dcd_filename][frame_index]
+                else:
+                    extrinsic_score = None
+
+                self.put_outlier(
+                    dcd_filename,
+                    frame_index,
+                    creation_time,
+                    outlier_score,
+                    extrinsic_score,
+                    outlier_ind,
+                )
+
+            # Send outliers to MD simulation jobs
+            outlier_results = self.send_outliers()
+            logger.info("Finished sending new outliers")
+
+            # outlier_results is a List of result_dicts:
+            # With the keys: {extrinsic_score, intrinsic_score, dcd_filename, frame_index, pdb_filename}
+
+            # Move outliers from scratch to persistent location
+            self.backup_pdbs(outlier_results, creation_time)
+            self.backup_array(embeddings, "embeddings", creation_time)
+            if rmsds:
+                rmsds = np.concatenate(list(rmsds.values()))
+                # Handles case when embeddings are dropped due to `drop_remainder`:
+                rmsds = rmsds[: len(embeddings)]
+                self.backup_array(rmsds, "rmsds", creation_time)
+            self.backup_json(outlier_results, "outliers", creation_time)
+
+            # Compute elapsed time
+            mins, secs = divmod(int(time.time() - start_time), 60)
+            logger.info(f"Outlier detection elapsed time {mins:02d}:{secs:02d} done")
+
+            # If elapsed time is greater than specified walltime then stop
+            # all MD simulations and end outlier detection process.
+            if mins + secs / 60 >= config.walltime_min:
+                logger.info("Walltime expired: halting simulations")
+                self.halt_simulations()
+                return
+
+
+if __name__ == "__main__":
+    # python -m deepdrivemd.agent.agent
     config = get_config()
     log_fname = config.md_dir.parent.joinpath("outlier_detection.log").as_posix()
     config_logging(filename=log_fname, **config.logging.dict())
@@ -308,97 +408,5 @@ def main():
 
     logger.info(f"Starting outlier detection main()")
     logger.info(f"{config.dict()}")
-
-    ctx = OutlierDetectionContext(**config.dict())
-
-    start_time = time.time()
-    while True:
-        # Will block until the first H5 files are received
-        ctx.rescan_h5_dcd()
-        dcd_files, model_input_data = ctx.update_dataset()
-
-        # NOTE: It's up to the ML service to do model selection;
-        # we're assuming the latest cvae weights file has the best model
-        ctx.await_model_weights()
-
-        embeddings = ctx.model.predict(model_input_data)
-        logger.info(f"end model prediction: generated {len(embeddings)} embeddings")
-
-        logger.info(
-            f"Starting outlier searching with n_outliers="
-            f"{config.num_outliers} and n_jobs={config.sklearn_num_cpus}"
-        )
-
-        outlier_inds, outlier_scores = outlier_search_lof(
-            embeddings, n_outliers=config.num_outliers, n_jobs=config.sklearn_num_cpus
-        )
-        logger.info("Done with outlier searching")
-
-        # A record of every trajectory length (they are all the same)
-        logger.debug("Building traj_dict:")
-        logger.debug(f"dcd_files = {dcd_files}")
-        logger.debug(f"ctx.h5_length = {ctx.h5_length}")
-        traj_dict = dict(zip(dcd_files, itertools.cycle([ctx.h5_length])))
-
-        # Collect rmsds from all h5 files
-        rmsds = {}
-        for dcd_filename in dcd_files:
-            h5_file = ctx.dcd_h5_map[dcd_filename]
-            with h5py.File(h5_file, "r") as f:
-                if "rmsd" in f.keys():
-                    rmsds[dcd_filename] = f["rmsd"][...]
-                else:
-                    break
-
-        # Identify new outliers and add to queue
-        creation_time = int(time.time())
-        for outlier_ind, outlier_score in zip(outlier_inds, outlier_scores):
-            # find the location of outlier in it's DCD file
-            frame_index, dcd_filename = find_frame(traj_dict, outlier_ind)
-
-            # Select optional extrinsic score
-            if rmsds and config.extrinsic_outlier_score == "rmsd_to_reference_state":
-                extrinsic_score = rmsds[dcd_filename][frame_index]
-            else:
-                extrinsic_score = None
-
-            ctx.put_outlier(
-                dcd_filename,
-                frame_index,
-                creation_time,
-                outlier_score,
-                extrinsic_score,
-                outlier_ind,
-            )
-
-        # Send outliers to MD simulation jobs
-        outlier_results = ctx.send_outliers()
-        logger.info("Finished sending new outliers")
-
-        # outlier_results is a List of result_dicts:
-        # With the keys: {extrinsic_score, intrinsic_score, dcd_filename, frame_index, pdb_filename}
-
-        # Move outliers from scratch to persistent location
-        ctx.backup_pdbs(outlier_results, creation_time)
-        ctx.backup_array(embeddings, "embeddings", creation_time)
-        if rmsds:
-            rmsds = np.concatenate(list(rmsds.values()))
-            # Handles case when embeddings are dropped due to `drop_remainder`:
-            rmsds = rmsds[: len(embeddings)]
-            ctx.backup_array(rmsds, "rmsds", creation_time)
-        ctx.backup_json(outlier_results, "outliers", creation_time)
-
-        # Compute elapsed time
-        mins, secs = divmod(int(time.time() - start_time), 60)
-        logger.info(f"Outlier detection elapsed time {mins:02d}:{secs:02d} done")
-
-        # If elapsed time is greater than specified walltime then stop
-        # all MD simulations and end outlier detection process.
-        if mins + secs / 60 >= config.walltime_min:
-            logger.info("Walltime expired: halting simulations")
-            ctx.halt_simulations()
-            return
-
-
-if __name__ == "__main__":
-    main()
+    agent = config.build_agent()
+    agent.main()  # main loop

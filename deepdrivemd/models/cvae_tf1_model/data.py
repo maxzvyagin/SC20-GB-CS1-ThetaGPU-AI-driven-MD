@@ -19,7 +19,10 @@ def get_real_batch_map_fn(tfrecord_shape, input_shape, dtype):
 
     def _map_fn(record):
         features = tf.io.parse_example(record, feature_description)
-        data = tf.compat.v1.io.decode_raw(features["data"], tf.bool,)
+        data = tf.compat.v1.io.decode_raw(
+            features["data"],
+            tf.bool,
+        )
         BS = data.shape.as_list()[0]
         x = tf.reshape(data, [BS] + tfrecord_shape)
         input_x = tf.slice(x, [0, 0, 0, 0], [BS] + input_shape)
@@ -101,7 +104,9 @@ def simulation_input_fn(params):
     dataset = dataset.batch(batch_size, drop_remainder=True)
     parse_sample = parse_funct(input_shape, final_shape, dtype)
     dataset = dataset.map(parse_sample)
-    dataset = dataset.shuffle(10,)
+    dataset = dataset.shuffle(
+        10,
+    )
     dataset = dataset.repeat()
     dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
     return dataset
@@ -168,7 +173,9 @@ def simulation_tf_record_input_fn(params):
     dataset = dataset.batch(batch_size, drop_remainder=True)
     parse_sample = parse_function_record(dtype, input_shape, final_shape)
     dataset = dataset.map(parse_sample)
-    dataset = dataset.shuffle(10,)
+    dataset = dataset.shuffle(
+        10,
+    )
     dataset = dataset.repeat()
     dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
     return dataset
@@ -189,7 +196,9 @@ def simulation_tf_record_eval_input_fn(params):
     dataset = dataset.batch(batch_size, drop_remainder=True)
     parse_sample = parse_function_record(dtype, input_shape, final_shape)
     dataset = dataset.map(parse_sample)
-    dataset = dataset.shuffle(10,)
+    dataset = dataset.shuffle(
+        10,
+    )
     dataset = dataset.repeat()
     dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
     return dataset
