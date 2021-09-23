@@ -131,3 +131,5 @@ dmypy.json
 .vscode/
 env/
 data/nsp10_16/
+*.xml
+.idea/SC20-GB-CS1-ThetaGPU-AI-driven-MD.iml
