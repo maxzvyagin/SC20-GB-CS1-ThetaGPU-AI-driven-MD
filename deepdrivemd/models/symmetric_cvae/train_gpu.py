@@ -40,7 +40,7 @@ def main(params: GPUTrainingRunConfig):
     logger.info(f"hvd.size() is {hvd.size()}")
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(hvd.local_rank())
-    session_config = tf.ConfigProto()
+    session_config =  tf.compat.v1.ConfigProto()
     session_config.gpu_options.allow_growth = True
     tf_config = tf.estimator.RunConfig(
          session_config=session_config, **params.runconfig_params
