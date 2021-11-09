@@ -116,7 +116,7 @@ def parse_function_record(dtype, input_shape, final_shape):
     }
 
     def _parse_record(record):
-        features = tf.parse_example(record, features=feature_description)
+        features = tf.io.parse_example(record, features=feature_description)
         # dtype should match what was used in utils.py
         image = tf.decode_raw(features["image_raw"], tf.float16)
         batch_size = image.shape.as_list()[0]
@@ -134,7 +134,7 @@ def parse_function_record_predict(dtype, input_shape, final_shape):
     }
 
     def _parse_record(record):
-        features = tf.parse_example(record, features=feature_description)
+        features = tf.io.parse_example(record, features=feature_description)
         # dtype should match what was used in utils.py
         image = tf.decode_raw(features["image_raw"], tf.float16)
         batch_size = image.shape.as_list()[0]
