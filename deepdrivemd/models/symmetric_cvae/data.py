@@ -103,7 +103,7 @@ def simulation_input_fn(params):
     dataset = dataset.map(parse_sample)
     dataset = dataset.shuffle(10,)
     dataset = dataset.repeat()
-    dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
+    dataset = dataset.prefetch(tf.compat.v1.contrib.data.AUTOTUNE)
     return dataset
 
 
@@ -170,7 +170,7 @@ def simulation_tf_record_input_fn(params):
     dataset = dataset.map(parse_sample)
     dataset = dataset.shuffle(10,)
     dataset = dataset.repeat()
-    dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
+    dataset = dataset.prefetch(tf.compat.v1.contrib.data.AUTOTUNE)
     return dataset
 
 
@@ -191,7 +191,7 @@ def simulation_tf_record_eval_input_fn(params):
     dataset = dataset.map(parse_sample)
     dataset = dataset.shuffle(10,)
     dataset = dataset.repeat()
-    dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
+    dataset = dataset.prefetch(tf.compat.v1.contrib.data.AUTOTUNE)
     return dataset
 
 
