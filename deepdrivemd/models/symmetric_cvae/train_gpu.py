@@ -69,13 +69,13 @@ def main(params: GPUTrainingRunConfig):
         all_h5_files = None
     all_h5_files = comm.bcast(all_h5_files, root=0)
     new_h5_files = all_h5_files.difference(seen_h5_files)
-    if len(new_h5_files) < params.num_h5s_per_training:
-        logger.info(
-            f"Got {len(new_h5_files)} out of {params.num_h5s_per_training} new H5s "
-            f"needed for training.  Sleeping..."
-        )
-        time.sleep(60)
-        # continue
+    # if len(new_h5_files) < params.num_h5s_per_training:
+    #     logger.info(
+    #         f"Got {len(new_h5_files)} out of {params.num_h5s_per_training} new H5s "
+    #         f"needed for training.  Sleeping..."
+    #     )
+    #     time.sleep(60)
+    #     # continue
     seen_h5_files.update(new_h5_files)
     logger.info("start update_dataset")
     if hvd.rank() == 0:
