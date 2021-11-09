@@ -62,39 +62,46 @@ def main(params: GPUTrainingRunConfig):
     logger.info("end create tf estimator")
 
     seen_h5_files = set()
-    while True:
-        if hvd.rank() == 0:
-            all_h5_files = set(params.sim_data_dir.glob("*.h5"))
-        else:
-            all_h5_files = None
-        all_h5_files = comm.bcast(all_h5_files, root=0)
-        new_h5_files = all_h5_files.difference(seen_h5_files)
-        if len(new_h5_files) < params.num_h5s_per_training:
-            logger.info(
-                f"Got {len(new_h5_files)} out of {params.num_h5s_per_training} new H5s "
-                f"needed for training.  Sleeping..."
-            )
-            time.sleep(60)
-            continue
-        seen_h5_files.update(new_h5_files)
-        logger.info("start update_dataset")
-        if hvd.rank() == 0:
-            update_dataset(params.dict())
-        logger.info("end update_dataset")
-        comm.Barrier()
 
-        logger.info(f"start train (steps={params.train_steps})")
-        est.train(
-            input_fn=simulation_tf_record_input_fn,
-            steps=params.train_steps,
-            hooks=[bcast_hook],
+    if hvd.rank() == 0:
+        all_h5_files = set(params.sim_data_dir.glob("*.h5"))
+    else:
+        all_h5_files = None
+    all_h5_files = comm.bcast(all_h5_files, root=0)
+    new_h5_files = all_h5_files.difference(seen_h5_files)
+    if len(new_h5_files) < params.num_h5s_per_training:
+        logger.info(
+            f"Got {len(new_h5_files)} out of {params.num_h5s_per_training} new H5s "
+            f"needed for training.  Sleeping..."
         )
-        logger.info(f"end train")
+        time.sleep(60)
+        continue
+    seen_h5_files.update(new_h5_files)
+    logger.info("start update_dataset")
+    if hvd.rank() == 0:
+        update_dataset(params.dict())
+    logger.info("end update_dataset")
+    comm.Barrier()
 
-        if hvd.rank() == 0:
-            for fname in local_checkpoint_path.glob("*"):
-                dest = shutil.copy(fname, params.checkpoint_path)
-                logger.info(f"Copied file: {dest}")
+    logger.info(f"start train (steps={params.train_steps})")
+    est.train(
+        input_fn=simulation_tf_record_input_fn,
+        steps=params.train_steps,
+        hooks=[bcast_hook],
+    )
+
+    gen = est.predict(
+        input_fn=input_data,
+        checkpoint_path=weights_file,
+        yield_single_examples=True,
+    )
+
+    logger.info(f"end train")
+
+    if hvd.rank() == 0:
+        for fname in local_checkpoint_path.glob("*"):
+            dest = shutil.copy(fname, params.checkpoint_path)
+            logger.info(f"Copied file: {dest}")
 
 
 if __name__ == "__main__":

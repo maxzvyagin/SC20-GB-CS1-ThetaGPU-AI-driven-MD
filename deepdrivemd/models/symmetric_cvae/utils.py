@@ -6,9 +6,10 @@ from scipy.sparse import coo_matrix
 import logging
 import os
 import glob
-import yaml
+# import yaml
 import shutil
 import random
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -53,9 +54,9 @@ def _bytes_feature(value):
 
 
 def write_record(contact_maps, record_name):
-    with tf.python_io.TFRecordWriter(record_name) as writer:
+    with tf.io.TFRecordWriter(record_name) as writer:
         for sample in contact_maps:
-            feature = {"image_raw": _bytes_feature(sample.tostring())}
+            feature = {"image_raw": _bytes_feature(sample.tobytes())}
             features = tf.train.Features(feature=feature)
             example = tf.train.Example(features=features)
             example_to_string = example.SerializeToString()
@@ -98,6 +99,7 @@ def write_to_tfrecords(
     train_dir_path,
     eval_dir_path,
     fraction=0.2,
+    padding=False
 ):
     os.makedirs(train_dir_path, exist_ok=True)
     os.makedirs(eval_dir_path, exist_ok=True)
@@ -106,7 +108,7 @@ def write_to_tfrecords(
     contact_maps = []
     for i, h5_file_path in enumerate(files):
         with h5py.File(h5_file_path, "r", libver="latest", swmr=False) as f:
-            for j, raw_indices in enumerate(f["contact_map"]):
+            for j, raw_indices in tqdm(enumerate(f["contact_map"])):
                 indices = raw_indices.reshape((2, -1)).astype("int16")
                 # Contact matrices are binary so we don't need to store the values
                 # in HDF5 format. Instead we create a vector of 1s on the fly.
@@ -115,9 +117,18 @@ def write_to_tfrecords(
                 contact_map = coo_matrix(
                     (values, (indices[0], indices[1])), shape=initial_shape
                 ).todense()
-                contact_map = np.array(
-                    contact_map[: final_shape[0], : final_shape[1]], dtype=np.float16
-                )
+                if padding:
+                    contact_map = np.array(
+                        contact_map[: final_shape[0], : final_shape[1]], dtype=float
+                    )
+                    pad_size = (final_shape[0] - initial_shape[0]) // 2
+                    contact_map = np.pad(contact_map, 1, mode="constant")
+                    print(contact_map.shape)
+                    # print(np.size(contact_map)-np.count_nonzero(contact_map))
+                else:
+                    contact_map = np.array(
+                        contact_map[: final_shape[0], : final_shape[1]], dtype=float
+                    )
                 contact_maps.append(contact_map)
                 if len(contact_maps) == num_samples:
                     record_counter += 1
@@ -154,11 +165,15 @@ if __name__ == "__main__":
     #     [370, 370]
     # )
 
+    files = glob.glob('/Users/mzvyagin/Documents/gordon_bell/7egq_h5_files/anda_newsim_7egq_segmentA/*')
+
     write_to_tfrecords(
-        files=["/data/shared/vishal/toy_data/ras1_prot.h5"],
-        initial_shape=[370, 370],
-        final_shape=[256, 256],
-        num_samples=1024,
-        train_dir_path="records_256",
-        eval_dir_path="eval_records_256",
+        # files=["/Users/mzvyagin/Documents/gordon_bell/7egq_h5_files/run_7egq_0_openmm_segmentA.h5"],
+        files=files,
+        initial_shape=[926, 926],
+        final_shape=[926, 926],
+        padding=False,
+        num_samples=4096,
+        train_dir_path="/Users/mzvyagin/Documents/gordon_bell/7egq_h5_files/sambanova_science_segmentA_926res",
+        eval_dir_path="/Users/mzvyagin/Documents/gordon_bell/7egq_h5_files/sambanova_science_segmentA_926res_eval",
     )
