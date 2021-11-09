@@ -75,7 +75,7 @@ def main(params: GPUTrainingRunConfig):
             f"needed for training.  Sleeping..."
         )
         time.sleep(60)
-        continue
+        # continue
     seen_h5_files.update(new_h5_files)
     logger.info("start update_dataset")
     if hvd.rank() == 0:
