@@ -30,7 +30,8 @@ def model_fn(features, labels, mode, params):
     global_step = tf.compat.v1.train.get_global_step()
 
     if mixed_precision:
-        tf.keras.mixed_precision.set_global_policy('mixed_float16')
+        policy = tf.keras.mixed_precision.Policy('mixed_float16')
+        tf.keras.mixed_precision.set_global_policy(policy)
 
     # Model output
     outputs, kl_loss, embedding_output = build_model(features, params)
