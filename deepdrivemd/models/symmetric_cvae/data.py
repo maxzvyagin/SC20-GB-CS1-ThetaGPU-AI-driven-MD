@@ -244,7 +244,7 @@ def get_real_batch_map_fn(tfrecord_shape, input_shape, dtype):
 
     def _map_fn(record):
         features = tf.io.parse_example(record, feature_description)
-        data = tf.compat.v1.io.decode_raw(features["data"], tf.bool,)
+        data = tf.compat.v1.io.decode_raw(features["data"], tf.float16,)
         BS = data.shape.as_list()[0]
         x = tf.reshape(data, [BS] + tfrecord_shape)
         input_x = tf.slice(x, [0, 0, 0, 0], [BS] + input_shape)
@@ -298,7 +298,7 @@ def input_fn(params, split):
 def parse_funct(input_shape, final_shape, dtype):
     def _parse_sample(raw_record):
         # dtype should match what was used in utils.py
-        feature = tf.io.decode_raw(raw_record, tf.bool)
+        feature = tf.io.decode_raw(raw_record, tf.float16)
         batch_size = feature.shape.as_list()[0]
         image = tf.reshape(feature, [batch_size] + input_shape)
         act_img = tf.slice(image, [0, 0, 0, 0], [batch_size] + final_shape)
@@ -343,7 +343,7 @@ def parse_function_record(dtype, input_shape, final_shape):
     def _parse_record(record):
         features = tf.io.parse_example(record, features=feature_description)
         # dtype should match what was used in utils.py
-        image = tf.io.decode_raw(features["image_raw"], tf.bool)
+        image = tf.io.decode_raw(features["image_raw"], tf.float16)
         batch_size = image.shape.as_list()[0]
         image = tf.reshape(image, [batch_size] + input_shape)
         act_img = tf.slice(image, [0, 0, 0, 0], [batch_size] + final_shape)
@@ -361,7 +361,7 @@ def parse_function_record_predict(dtype, input_shape, final_shape):
     def _parse_record(record):
         features = tf.io.parse_example(record, features=feature_description)
         # dtype should match what was used in utils.py
-        image = tf.io.decode_raw(features["image_raw"], tf.bool)
+        image = tf.io.decode_raw(features["image_raw"], tf.float16)
         batch_size = image.shape.as_list()[0]
         image = tf.reshape(image, [batch_size] + input_shape)
         act_img = tf.slice(image, [0, 0, 0, 0], [batch_size] + final_shape)
