@@ -57,6 +57,10 @@ def model_fn(features, labels, mode, params):
             loss_collection=None,
             reduction=tf.compat.v1.losses.Reduction.NONE,
         )
+
+        print("KL Loss: {}".format(kl_loss))
+        print("BCE Loss: {}".format(bce_loss))
+
         if recon_loss_red_type == "sum":
             # Sum across elements
             bce_loss = tf.reduce_sum(bce_loss, axis=1)
