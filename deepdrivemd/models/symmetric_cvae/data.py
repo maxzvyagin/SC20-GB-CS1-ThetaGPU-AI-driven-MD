@@ -343,7 +343,7 @@ def parse_function_record(dtype, input_shape, final_shape):
     def _parse_record(record):
         features = tf.io.parse_example(record, features=feature_description)
         # dtype should match what was used in utils.py
-        image = tf.io.decode_raw(features["image_raw"], tf.float16)
+        image = tf.io.decode_raw(features["image_raw"], tf.bool)
         batch_size = image.shape.as_list()[0]
         image = tf.reshape(image, [batch_size] + input_shape)
         act_img = tf.slice(image, [0, 0, 0, 0], [batch_size] + final_shape)
@@ -361,7 +361,7 @@ def parse_function_record_predict(dtype, input_shape, final_shape):
     def _parse_record(record):
         features = tf.io.parse_example(record, features=feature_description)
         # dtype should match what was used in utils.py
-        image = tf.io.decode_raw(features["image_raw"], tf.float16)
+        image = tf.io.decode_raw(features["image_raw"], tf.bool)
         batch_size = image.shape.as_list()[0]
         image = tf.reshape(image, [batch_size] + input_shape)
         act_img = tf.slice(image, [0, 0, 0, 0], [batch_size] + final_shape)
