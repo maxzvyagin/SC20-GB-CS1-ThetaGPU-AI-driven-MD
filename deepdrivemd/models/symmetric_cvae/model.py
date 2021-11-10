@@ -6,6 +6,9 @@ import tensorflow as tf
 from .layers import build_model
 from .optimizer import get_optimizer
 
+from tensorflow.python.training.experimental.loss_scale import FixedLossScale
+
+
 _REDUCTION_TYPES = ["sum", "mean"]
 
 
@@ -58,9 +61,6 @@ def model_fn(features, labels, mode, params):
             reduction=tf.compat.v1.losses.Reduction.NONE,
         )
 
-        print("KL Loss: {}".format(kl_loss))
-        print("BCE Loss: {}".format(bce_loss))
-
         if recon_loss_red_type == "sum":
             # Sum across elements
             bce_loss = tf.reduce_sum(bce_loss, axis=1)
@@ -97,7 +97,7 @@ def model_fn(features, labels, mode, params):
 
         # Minimize the loss
         train_op = optimizer.apply_gradients(
-            unscaled_grads_vars, global_step=global_step
+            scaled_grads_vars, global_step=global_step
         )
 
     logging_hook = tf.estimator.LoggingTensorHook([loss], every_n_iter=10, at_end=True)
