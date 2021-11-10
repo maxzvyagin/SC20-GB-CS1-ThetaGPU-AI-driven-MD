@@ -214,7 +214,7 @@ def _bytes_feature(value):
 
 
 def write_record(contact_maps, record_name):
-    with tf.python_io.TFRecordWriter(record_name) as writer:
+    with tf.io.TFRecordWriter(record_name) as writer:
         for sample in contact_maps:
             feature = {"image_raw": _bytes_feature(sample.tostring())}
             features = tf.train.Features(feature=feature)
