@@ -119,7 +119,7 @@ def write_to_tfrecords(
                 ).todense()
                 if padding:
                     contact_map = np.array(
-                        contact_map[: final_shape[0], : final_shape[1]], dtype=np.float16
+                        contact_map[: final_shape[0], : final_shape[1]], dtype=bool
                     )
                     pad_size = (final_shape[0] - initial_shape[0]) // 2
                     contact_map = np.pad(contact_map, 1, mode="constant")
@@ -127,7 +127,7 @@ def write_to_tfrecords(
                     # print(np.size(contact_map)-np.count_nonzero(contact_map))
                 else:
                     contact_map = np.array(
-                        contact_map[: final_shape[0], : final_shape[1]], dtype=np.float16
+                        contact_map[: final_shape[0], : final_shape[1]], dtype=bool
                     )
                 contact_maps.append(contact_map)
                 if len(contact_maps) == num_samples:
