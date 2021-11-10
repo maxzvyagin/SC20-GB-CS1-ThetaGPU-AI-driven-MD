@@ -49,47 +49,47 @@ def get_optimizer(params):
     return hvd.DistributedOptimizer(optimizer)
 
 
-class MixedPrecisionLossScaleOptimizerAdapter(
-    loss_scale_optimizer.MixedPrecisionLossScaleOptimizer
-):
-    def __init__(self, opt, loss_scale):
-
-        super(MixedPrecisionLossScaleOptimizerAdapter, self).__init__(
-            opt, loss_scale
-        )
-
-    @property
-    def loss_scale(self):
-        return self._loss_scale()
-
-    def _scale_loss(self, loss):
-        loss_scale = self._loss_scale()
-        if callable(loss):
-
-            def new_loss():
-                loss_val = loss()
-                return loss_val * math_ops.cast(loss_scale, loss_val.dtype)
-
-            return new_loss
-        else:
-            return loss * math_ops.cast(loss_scale, loss.dtype)
-
-    def _unscale_grads(self, grads):
-        loss_scale = self._loss_scale()
-        loss_scale_reciprocal = 1 / loss_scale
-        return [
-            None if g is None else self._scale_grad(g, loss_scale_reciprocal)
-            for g in grads
-        ]
-
-    def _scale_grad(self, grad, loss_scale_reciprocal):
-        if isinstance(grad, ops.IndexedSlices):
-            grad_vals = (
-                math_ops.cast(grad.values, tf.float32) * loss_scale_reciprocal
-            )
-            return ops.IndexedSlices(grad_vals, grad.indices, grad.dense_shape)
-        return math_ops.cast(grad, tf.float32) * loss_scale_reciprocal
-
-
-def wrap_optimizer(opt, loss_scale):
-    return MixedPrecisionLossScaleOptimizerAdapter(opt, loss_scale)
+# class MixedPrecisionLossScaleOptimizerAdapter(
+#     loss_scale_optimizer.MixedPrecisionLossScaleOptimizer
+# ):
+#     def __init__(self, opt, loss_scale):
+#
+#         super(MixedPrecisionLossScaleOptimizerAdapter, self).__init__(
+#             opt, loss_scale
+#         )
+#
+#     @property
+#     def loss_scale(self):
+#         return self._loss_scale()
+#
+#     def _scale_loss(self, loss):
+#         loss_scale = self._loss_scale()
+#         if callable(loss):
+#
+#             def new_loss():
+#                 loss_val = loss()
+#                 return loss_val * math_ops.cast(loss_scale, loss_val.dtype)
+#
+#             return new_loss
+#         else:
+#             return loss * math_ops.cast(loss_scale, loss.dtype)
+#
+#     def _unscale_grads(self, grads):
+#         loss_scale = self._loss_scale()
+#         loss_scale_reciprocal = 1 / loss_scale
+#         return [
+#             None if g is None else self._scale_grad(g, loss_scale_reciprocal)
+#             for g in grads
+#         ]
+#
+#     def _scale_grad(self, grad, loss_scale_reciprocal):
+#         if isinstance(grad, ops.IndexedSlices):
+#             grad_vals = (
+#                 math_ops.cast(grad.values, tf.float32) * loss_scale_reciprocal
+#             )
+#             return ops.IndexedSlices(grad_vals, grad.indices, grad.dense_shape)
+#         return math_ops.cast(grad, tf.float32) * loss_scale_reciprocal
+#
+#
+# def wrap_optimizer(opt, loss_scale):
+#     return MixedPrecisionLossScaleOptimizerAdapter(opt, loss_scale)
