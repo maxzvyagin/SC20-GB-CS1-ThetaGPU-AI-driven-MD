@@ -97,7 +97,7 @@ def model_fn(features, labels, mode, params):
 
         # Minimize the loss
         train_op = optimizer.apply_gradients(
-            scaled_grads_vars, global_step=global_step
+            unscaled_grads_vars, global_step=global_step
         )
 
     logging_hook = tf.estimator.LoggingTensorHook([loss], every_n_iter=10, at_end=True)
