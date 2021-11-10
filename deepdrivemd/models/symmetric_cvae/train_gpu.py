@@ -17,6 +17,7 @@ from deepdrivemd.models.symmetric_cvae.prepare_dataset import update_dataset
 from deepdrivemd.driver.config import GPUTrainingRunConfig
 from deepdrivemd import config_logging
 
+import time
 
 logger = None
 
@@ -78,12 +79,13 @@ def main(params: GPUTrainingRunConfig):
     #     # continue
     seen_h5_files.update(new_h5_files)
     logger.info("start update_dataset")
-    if hvd.rank() == 0:
-        update_dataset(params.dict())
+    # if hvd.rank() == 0:
+    update_dataset(params.dict())
     logger.info("end update_dataset")
     comm.Barrier()
 
     logger.info(f"start train (steps={params.train_steps})")
+
     est.train(
         input_fn=simulation_tf_record_input_fn,
         steps=params.train_steps,
