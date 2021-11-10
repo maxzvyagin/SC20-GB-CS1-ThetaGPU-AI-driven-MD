@@ -12,13 +12,13 @@ def get_optimizer(params):
     optimizer_name = params["optimizer_name"]
     if optimizer_name in _ALLOWED_OPTIMIZERS:
         if optimizer_name == "adam":
-            optimizer = tf.compat.v1.train.AdamOptimizer(
+            optimizer = tf.keras.mixed_precision.LossScaleOptimizer(tf.compat.v1.train.AdamOptimizer(
                 learning_rate=lr,
                 beta1=params["beta1"],
                 beta2=params["beta2"],
                 epsilon=params["epsilon"],
                 name="adam",
-            )
+            ))
         elif optimizer_name == "rmsprop":
             optimizer = tf.compat.v1.train.RMSPropOptimizer(
                 learning_rate=lr,
