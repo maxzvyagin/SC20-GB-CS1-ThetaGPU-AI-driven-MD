@@ -86,7 +86,7 @@ def model_fn(features, labels, mode, params):
     # Optimizer
     if mode == tf.estimator.ModeKeys.TRAIN:
         # Choose the right optimizer
-        optimizer = tf.keras.mixed_precision.LossScaleOptimizer(tf.compat.v1.train.AdamOptimizer(
+        optimizer = tf.keras.mixed_precision.LossScaleOptimizer(tf.keras.optimizers.Adam(
                 learning_rate=params["learning_rate"],
                 beta1=params["beta1"],
                 beta2=params["beta2"],
