@@ -22,7 +22,7 @@ def get_real_batch_map_fn(tfrecord_shape, input_shape, dtype):
         features = tf.io.parse_example(record, feature_description)
         data = tf.compat.v1.io.decode_raw(features["data"], tf.bool,)
         pdb.set_trace()
-        BS = data.shape.as_list()[0]
+        BS = 1
         x = tf.reshape(data, [BS] + tfrecord_shape)
         input_x = tf.slice(x, [0, 0, 0, 0], [BS] + input_shape)
         flat_input_x = tf.reshape(input_x, [BS, -1])
