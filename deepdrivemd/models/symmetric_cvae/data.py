@@ -5,7 +5,6 @@ import tensorflow as tf
 import numpy as np
 import glob
 import pdb
-pdb.set_trace()
 
 
 def get_real_datasets(data_dir):
@@ -22,6 +21,7 @@ def get_real_batch_map_fn(tfrecord_shape, input_shape, dtype):
     def _map_fn(record):
         features = tf.io.parse_example(record, feature_description)
         data = tf.compat.v1.io.decode_raw(features["data"], tf.bool,)
+        pdb.set_trace()
         BS = data.shape.as_list()[0]
         x = tf.reshape(data, [BS] + tfrecord_shape)
         input_x = tf.slice(x, [0, 0, 0, 0], [BS] + input_shape)
